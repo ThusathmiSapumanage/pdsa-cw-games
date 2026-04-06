@@ -66,6 +66,6 @@ Here is a visual walkthrough of the ALGOCORE frontend interface:
 ## Final Push Instructions
 When committing changes, ensure your git attribution is correct:
 ```powershell
-git config user.email "chanirub2003@gmail.com"
-git config user.name "Chaniru Weerasinghe"
+git config user.email "email@gmail.com"
+git config user.name "FirstName LastName"
 ```
