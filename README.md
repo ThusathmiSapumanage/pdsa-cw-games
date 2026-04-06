@@ -1,5 +1,7 @@
 # ALGOCORE - Getting Started
 
+![ALGOCORE Runner](assets/runner.svg)
+
 This guide provides instructions on how to set up and run the ALGOCORE project locally.
 
 ## Prerequisites
@@ -63,9 +65,3 @@ Here is a visual walkthrough of the ALGOCORE frontend interface:
 4. **Access the application:**
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Final Push Instructions
-When committing changes, ensure your git attribution is correct:
-```powershell
-git config user.email "email@gmail.com"
-git config user.name "FirstName LastName"
-```
