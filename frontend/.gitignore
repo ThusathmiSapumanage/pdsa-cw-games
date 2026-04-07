@@ -1,24 +1,45 @@
-# Logs
-logs
+# ==========================
+# Frontend .gitignore
+# ==========================
+
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Turbopack
+.turbo/
+
+# Vercel
+.vercel/
+
+# Build artifacts
+dist/
+dist-ssr/
+build/
+
+# Debug logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment
 *.local
+.env
+.env.*
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Testing
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db

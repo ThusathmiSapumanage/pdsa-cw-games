@@ -1,3 +1,0 @@
-module.exports=[26451,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(88149);a.n(d("[project]/ALGOCORE/frontend/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},89941,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(88149);a.n(d("[project]/ALGOCORE/frontend/node_modules/next/dist/client/components/builtin/global-error.js"))},36100,a=>{"use strict";a.i(26451);var b=a.i(89941);a.n(b)}];
-
-//# sourceMappingURL=b48b6_next_dist_client_components_builtin_global-error_82ea60f7.js.map
