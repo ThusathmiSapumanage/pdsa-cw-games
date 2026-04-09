@@ -34,3 +34,8 @@ pnpm-debug.log*
 
 # Coursework PDF (private)
 *.pdf
+
+# Traffic Simulation
+traffic*.md
+data.sql
+application.properties
