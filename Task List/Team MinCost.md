@@ -17,9 +17,9 @@ This file tracks the synchronized development progress for the Minimum Cost Assi
 ### Day 2 – Greedy Strategy & Highlighting
 *   **Rumeth:** [ ] Implement Greedy algorithm with row/column blocking logic.
 *   **Rumeth:** [ ] Store sequential assignments and total costs.
-*   **Chaniru:** [ ] Add visual cell highlighting for assigned tasks.
-*   **Chaniru:** [ ] Display dimmed overlays for blocked rows/columns.
-*   **Chaniru:** [ ] Implement interactive log panel to track greedy decisions.
+*   **Chaniru:** [x] Add visual cell highlighting for assigned tasks.
+*   **Chaniru:** [x] Display dimmed overlays for blocked rows/columns.
+*   **Chaniru:** [x] Implement interactive log panel to track greedy decisions.
 
 ### Day 3 – Optimal Hungarian & Metrics
 *   **Chaniru:** [ ] Implement Hungarian Algorithm ($O(N^3)$) with matrix reduction logic.
