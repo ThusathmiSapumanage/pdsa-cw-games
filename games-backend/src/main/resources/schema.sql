@@ -122,13 +122,11 @@ CREATE TABLE IF NOT EXISTS Roads (
 -- Ordered move list produced by Knight Tour.
 CREATE TABLE IF NOT EXISTS Knight_Move (
     Session_Id INT UNSIGNED NOT NULL,
-    Algorithm_Id INT UNSIGNED NOT NULL,
     Step_No SMALLINT UNSIGNED NOT NULL,
     X_Value TINYINT UNSIGNED NOT NULL,
     Y_Value TINYINT UNSIGNED NOT NULL,
-    PRIMARY KEY (Session_Id, Algorithm_Id, Step_No),
-    FOREIGN KEY (Session_Id) REFERENCES Knight_Tour_Game(Session_Id) ON DELETE CASCADE,
-    FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
+    PRIMARY KEY (Session_Id, Step_No),
+    FOREIGN KEY (Session_Id) REFERENCES Knight_Tour_Game(Session_Id) ON DELETE CASCADE
 );
 
 -- Stores each 16-Queens solution discovered/generated.
