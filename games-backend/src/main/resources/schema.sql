@@ -160,3 +160,14 @@ CREATE TABLE IF NOT EXISTS Algorithm_Execute (
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE,
     FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
 );
+
+-- Record user input as the users path.
+CREATE TABLE IF NOT EXISTS Knight_Tour_Response_Move (
+    Response_Id INT UNSIGNED NOT NULL,
+    Step_No SMALLINT UNSIGNED NOT NULL,
+    X_Value TINYINT UNSIGNED NOT NULL,
+    Y_Value TINYINT UNSIGNED NOT NULL,
+    PRIMARY KEY (Response_Id, Step_No),
+    CONSTRAINT fk_ktrm_response
+        FOREIGN KEY (Response_Id) REFERENCES Response(Response_Id) ON DELETE CASCADE
+);
