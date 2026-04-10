@@ -1,97 +1,86 @@
-import { useState } from 'react'
-import GameLayoutShell from './GameLayoutShell'
+import { useState } from "react";
+import GameLayoutShell from "./GameLayoutShell";
+import ResultsPanel from "./ResultsPanel";
 
 function MinimumCostGame() {
-  const [matrix, setMatrix] = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [blockedRows, setBlockedRows] = useState([])
-  const [blockedCols, setBlockedCols] = useState([])
-  const [logs, setLogs] = useState([])
-  const [totalCost, setTotalCost] = useState(0)
+  const [matrix, setMatrix] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [blockedRows, setBlockedRows] = useState([]);
+  const [blockedCols, setBlockedCols] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [totalCost, setTotalCost] = useState(0);
+  const [greedyTotalCost, setGreedyTotalCost] = useState(0);
+  const [hungarianTotalCost, setHungarianTotalCost] = useState(0);
+  const [greedyTimeMs, setGreedyTimeMs] = useState(0);
+  const [hungarianTimeMs, setHungarianTimeMs] = useState(0);
 
   const handleStartGame = () => {
-    fetch('/mincost/start')
+    fetch("http://localhost:8080/api/mincost/start", {
+      method: "POST",
+    })
       .then((res) => res.json())
       .then((data) => {
-        const nextMatrix = Array.isArray(data.matrix) ? data.matrix : []
-        setMatrix(nextMatrix)
-        setAssignments([])
-        setBlockedRows([])
-        setBlockedCols([])
-        setTotalCost(0)
-        setLogs(['Matrix generated'])
+        const nextMatrix = Array.isArray(data.matrix) ? data.matrix : [];
+        const greedyAssignments = Array.isArray(data.greedyAssignments)
+          ? data.greedyAssignments
+          : [];
+        const greedyLogs = Array.isArray(data.greedyLogs)
+          ? data.greedyLogs
+          : ["Matrix generated"];
+
+        setMatrix(nextMatrix);
+        setAssignments(greedyAssignments);
+        setBlockedRows(greedyAssignments.map((item) => item.row));
+        setBlockedCols(greedyAssignments.map((item) => item.col));
+        setLogs(greedyLogs);
+
+        setGreedyTotalCost(data.greedyTotalCost ?? 0);
+        setHungarianTotalCost(data.hungarianTotalCost ?? 0);
+        setGreedyTimeMs(data.greedyTimeMs ?? 0);
+        setHungarianTimeMs(data.hungarianTimeMs ?? 0);
+        setTotalCost(data.greedyTotalCost ?? 0);
       })
       .catch(() => {
-        setLogs((prevLogs) => [...prevLogs, 'Failed to fetch matrix from backend'])
-      })
-  }
+        setLogs((prevLogs) => [
+          ...prevLogs,
+          "Failed to fetch matrix/results from backend",
+        ]);
+      });
+  };
 
   const handleNextStep = () => {
-    if (!matrix.length) {
-      setLogs((prevLogs) => [...prevLogs, 'Load a matrix first by clicking Start Game'])
-      return
-    }
-
-    if (assignments.length >= matrix.length) {
-      setLogs((prevLogs) => [...prevLogs, 'All tasks assigned. Greedy algorithm complete.'])
-      return
-    }
-
-    let minValue = Infinity
-    let selectedRow = -1
-    let selectedCol = -1
-
-    for (let rowIndex = 0; rowIndex < matrix.length; rowIndex += 1) {
-      if (blockedRows.includes(rowIndex)) {
-        continue
-      }
-
-      for (let colIndex = 0; colIndex < matrix[rowIndex].length; colIndex += 1) {
-        if (blockedCols.includes(colIndex)) {
-          continue
-        }
-
-        if (matrix[rowIndex][colIndex] < minValue) {
-          minValue = matrix[rowIndex][colIndex]
-          selectedRow = rowIndex
-          selectedCol = colIndex
-        }
-      }
-    }
-
-    if (selectedRow === -1 || selectedCol === -1) {
-      setLogs((prevLogs) => [...prevLogs, 'No valid assignment found.'])
-      return
-    }
-
-    const assignment = {
-      row: selectedRow,
-      col: selectedCol,
-      cost: minValue,
-    }
-
-    const stepNumber = assignments.length + 1
-    const message = `Step ${stepNumber}: Assign Task T${selectedRow + 1} -> Employee E${selectedCol + 1} (Cost ${minValue})`
-
-    setAssignments((prevAssignments) => [...prevAssignments, assignment])
-    setBlockedRows((prevRows) => [...prevRows, selectedRow])
-    setBlockedCols((prevCols) => [...prevCols, selectedCol])
-    setTotalCost((prevTotal) => prevTotal + minValue)
-    setLogs((prevLogs) => [...prevLogs, message])
-  }
+    setLogs((prevLogs) => [
+      ...prevLogs,
+      "Use Generate & Run to refresh full results.",
+    ]);
+  };
 
   return (
-    <GameLayoutShell
-      matrix={matrix}
-      assignments={assignments}
-      blockedRows={blockedRows}
-      blockedCols={blockedCols}
-      logs={logs}
-      totalCost={totalCost}
-      onStartGame={handleStartGame}
-      onNextStep={handleNextStep}
-    />
-  )
+    <>
+      <GameLayoutShell
+        matrix={matrix}
+        assignments={assignments}
+        blockedRows={blockedRows}
+        blockedCols={blockedCols}
+        logs={logs}
+        totalCost={totalCost}
+        greedyTotalCost={greedyTotalCost}
+        hungarianTotalCost={hungarianTotalCost}
+        greedyTimeMs={greedyTimeMs}
+        hungarianTimeMs={hungarianTimeMs}
+        onStartGame={handleStartGame}
+        onNextStep={handleNextStep}
+      />
+
+      {/* Results comparison panel */}
+      <ResultsPanel
+        greedyTotalCost={greedyTotalCost}
+        hungarianTotalCost={hungarianTotalCost}
+        greedyTimeMs={greedyTimeMs}
+        hungarianTimeMs={hungarianTimeMs}
+      />
+    </>
+  );
 }
 
-export default MinimumCostGame
+export default MinimumCostGame;
