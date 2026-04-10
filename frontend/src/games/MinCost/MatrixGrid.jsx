@@ -1,6 +1,7 @@
-function MatrixGrid({ matrix = [] }) {
+function MatrixGrid({ matrix = [], assignments = [], blockedRows = [], blockedCols = [] }) {
   const hasRows = Array.isArray(matrix) && matrix.length > 0
   const columnCount = hasRows ? matrix[0].length : 0
+  const isAssigned = (row, col) => assignments.some((item) => item.row === row && item.col === col)
 
   return (
     <div className="overflow-x-auto">
@@ -9,7 +10,10 @@ function MatrixGrid({ matrix = [] }) {
           <tr>
             <th className="border text-center p-2 bg-gray-50"></th>
             {Array.from({ length: columnCount }, (_, columnIndex) => (
-              <th key={`employee-${columnIndex}`} className="border text-center p-2 bg-gray-50">
+              <th
+                key={`employee-${columnIndex}`}
+                className={`border text-center p-2 bg-gray-50 ${blockedCols.includes(columnIndex) ? 'opacity-40' : ''}`}
+              >
                 E{columnIndex + 1}
               </th>
             ))}
@@ -19,14 +23,28 @@ function MatrixGrid({ matrix = [] }) {
           {hasRows ? (
             matrix.map((row, rowIndex) => (
               <tr key={`task-row-${rowIndex}`}>
-                <th className="border text-center p-2 bg-gray-50">T{rowIndex + 1}</th>
+                <th
+                  className={`border text-center p-2 bg-gray-50 ${blockedRows.includes(rowIndex) ? 'opacity-40' : ''}`}
+                >
+                  T{rowIndex + 1}
+                </th>
                 {row.map((value, columnIndex) => (
-                  <td
-                    key={`cell-${rowIndex}-${columnIndex}`}
-                    className="border text-center p-2 hover:bg-gray-100"
-                  >
-                    {value}
-                  </td>
+                  (() => {
+                    const cellIsAssigned = isAssigned(rowIndex, columnIndex)
+                    const rowBlocked = blockedRows.includes(rowIndex)
+                    const colBlocked = blockedCols.includes(columnIndex)
+                    const dimmedClass = rowBlocked || colBlocked ? 'opacity-40' : ''
+                    const assignedClass = cellIsAssigned ? 'bg-green-300 font-semibold opacity-100' : ''
+
+                    return (
+                      <td
+                        key={`cell-${rowIndex}-${columnIndex}`}
+                        className={`border text-center p-2 hover:bg-gray-100 ${dimmedClass} ${assignedClass}`}
+                      >
+                        {value}
+                      </td>
+                    )
+                  })()
                 ))}
               </tr>
             ))
