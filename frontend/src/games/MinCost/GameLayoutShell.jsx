@@ -1,7 +1,16 @@
 import MatrixGrid from './MatrixGrid'
 import AlgorithmLog from './AlgorithmLog'
 
-function GameLayoutShell({ matrix, logs, onStartGame, onNextStep }) {
+function GameLayoutShell({
+  matrix,
+  assignments,
+  blockedRows,
+  blockedCols,
+  logs,
+  totalCost,
+  onStartGame,
+  onNextStep,
+}) {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -27,7 +36,12 @@ function GameLayoutShell({ matrix, logs, onStartGame, onNextStep }) {
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-800">Greedy Algorithm Matrix</h2>
-          <MatrixGrid matrix={matrix} />
+          <MatrixGrid
+            matrix={matrix}
+            assignments={assignments}
+            blockedRows={blockedRows}
+            blockedCols={blockedCols}
+          />
         </div>
 
         <div className="space-y-2">
@@ -35,6 +49,8 @@ function GameLayoutShell({ matrix, logs, onStartGame, onNextStep }) {
           <MatrixGrid matrix={matrix} />
         </div>
       </div>
+
+      <p className="text-left text-lg font-semibold text-gray-900">Total Cost: {totalCost}</p>
 
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-800">Algorithm Log</h2>
