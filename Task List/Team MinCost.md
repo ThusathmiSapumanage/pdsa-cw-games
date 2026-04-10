@@ -9,17 +9,17 @@ This file tracks the synchronized development progress for the Minimum Cost Assi
 ## Sprint Schedule (1 Week)
 
 ### Day 1 – Foundation & Matrix Setup
-*   **Chaniru:** [ ] Create backend module structure (folders, controllers, services).
-*   **Chaniru:** [ ] Implement Matrix Generator (N=50-100, Values=20-200).
-*   **Rumeth:** [ ] Create Frontend page layout (`GameLayoutShell`).
-*   **Rumeth:** [ ] Implement visual Matrix Grid component.
+*   **Chaniru:** [x] Create backend module structure (folders, controllers, services).
+*   **Chaniru:** [x] Implement Matrix Generator (N=50-100, Values=20-200).
+*   **Rumeth:** [x] Create Frontend page layout (`GameLayoutShell`).
+*   **Rumeth:** [x] Implement visual Matrix Grid component.
 
 ### Day 2 – Greedy Strategy & Highlighting
 *   **Rumeth:** [ ] Implement Greedy algorithm with row/column blocking logic.
 *   **Rumeth:** [ ] Store sequential assignments and total costs.
-*   **Chaniru:** [ ] Add visual cell highlighting for assigned tasks.
-*   **Chaniru:** [ ] Display dimmed overlays for blocked rows/columns.
-*   **Chaniru:** [ ] Implement interactive log panel to track greedy decisions.
+*   **Chaniru:** [x] Add visual cell highlighting for assigned tasks.
+*   **Chaniru:** [x] Display dimmed overlays for blocked rows/columns.
+*   **Chaniru:** [x] Implement interactive log panel to track greedy decisions.
 
 ### Day 3 – Optimal Hungarian & Metrics
 *   **Chaniru:** [ ] Implement Hungarian Algorithm ($O(N^3)$) with matrix reduction logic.
