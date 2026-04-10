@@ -199,6 +199,11 @@ export default function MinimumCostPage() {
     setCurrentStep((prev) => (prev === undefined || prev === 0 ? 0 : prev - 1));
   };
 
+  const optimalAlgorithm =
+    (result?.greedyTotalCost ?? Infinity) <= (result?.hungarianTotalCost ?? Infinity)
+      ? "Greedy"
+      : "Hungarian";
+
   return (
     <>
       <GameLayoutShell
@@ -320,25 +325,52 @@ export default function MinimumCostPage() {
           )
         }
         results={
-          // Execution summary panel.
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5">
-               <span className="text-[10px] font-mono text-white/40 uppercase">Greedy Total</span>
-               <span className="text-xl font-black text-white">{result?.greedyTotalCost ?? "--"}</span>
+              <span className="text-[10px] font-mono text-white/40 uppercase">
+                Greedy Total
+              </span>
+              <span className="text-xl font-black text-white">
+                {result?.greedyTotalCost ?? "--"}
+              </span>
             </div>
+
             <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5">
-               <span className="text-[10px] font-mono text-white/40 uppercase">Optimal Total</span>
-               <span className="text-xl font-black text-green-400">{result?.hungarianTotalCost ?? "--"}</span>
+              <span className="text-[10px] font-mono text-white/40 uppercase">
+                Optimal Total
+              </span>
+              <span className="text-xl font-black text-green-400">
+                {result?.hungarianTotalCost ?? "--"}
+              </span>
             </div>
+
+            <div className="flex justify-between items-center bg-green-600/10 p-3 rounded-lg border border-green-500/20">
+              <span className="text-[10px] font-mono text-green-400 uppercase">
+                Optimal Algorithm
+              </span>
+              <span className="text-sm font-bold text-green-300">
+                {result ? optimalAlgorithm : "--"}
+              </span>
+            </div>
+
             <div className="grid grid-cols-2 gap-2 pt-4">
-               <div className="text-center p-3 bg-blue-600/10 rounded-lg border border-blue-500/20">
-                  <p className="text-[9px] text-blue-400 uppercase font-bold mb-1">Greedy Time</p>
-                  <p className="text-xs font-mono text-white">{result?.greedyTimeMs ?? "--"}ms</p>
-               </div>
-               <div className="text-center p-3 bg-purple-600/10 rounded-lg border border-purple-500/20">
-                  <p className="text-[9px] text-purple-400 uppercase font-bold mb-1">Hungarian Time</p>
-                  <p className="text-xs font-mono text-white">{result?.hungarianTimeMs ?? "--"}ms</p>
-               </div>
+              <div className="text-center p-3 bg-blue-600/10 rounded-lg border border-blue-500/20">
+                <p className="text-[9px] text-blue-400 uppercase font-bold mb-1">
+                  Greedy Time
+                </p>
+                <p className="text-xs font-mono text-white">
+                  {result?.greedyTimeMs ?? "--"}ms
+                </p>
+              </div>
+
+              <div className="text-center p-3 bg-purple-600/10 rounded-lg border border-purple-500/20">
+                <p className="text-[9px] text-purple-400 uppercase font-bold mb-1">
+                  Hungarian Time
+                </p>
+                <p className="text-xs font-mono text-white">
+                  {result?.hungarianTimeMs ?? "--"}ms
+                </p>
+              </div>
             </div>
           </div>
         }
