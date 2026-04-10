@@ -16,15 +16,17 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/games")
-@Tag(name = "Games", description = "Create, list, fetch, and delete games")
+@Tag(name = "Games", description = "Create, list, fetch, update and delete games")
 public class GameController {
 
 	private final GameService gameService;
@@ -120,6 +122,62 @@ public class GameController {
 			@Parameter(description = "Unique game identifier", example = "1")
 			@PathVariable Integer gameId) {
 		return gameService.getGameById(gameId)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@PutMapping("/{gameId}")
+	@Operation(
+			summary = "Replace game",
+			description = "Fully updates the game identified by `gameId` and returns the updated resource."
+	)
+	@ApiResponses({
+			@ApiResponse(
+					responseCode = "200",
+					description = "Game updated successfully",
+					content = @Content(mediaType = "application/json", schema = @Schema(implementation = GameModel.class))
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "Invalid request body (for example, path and body ids do not match)",
+					content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))
+			),
+			@ApiResponse(responseCode = "404", description = "No game exists with the provided id"),
+			@ApiResponse(responseCode = "500", description = "Unexpected server error")
+	})
+	public ResponseEntity<GameModel> updateGame(
+			@Parameter(description = "Unique game identifier", example = "1")
+			@PathVariable Integer gameId,
+			@RequestBody GameModel game) {
+		return gameService.updateGame(gameId, game)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@PatchMapping("/{gameId}")
+	@Operation(
+			summary = "Partially update game",
+			description = "Partially updates mutable fields of the game identified by `gameId`."
+	)
+	@ApiResponses({
+			@ApiResponse(
+					responseCode = "200",
+					description = "Game updated successfully",
+					content = @Content(mediaType = "application/json", schema = @Schema(implementation = GameModel.class))
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "Invalid patch body (for example, no updatable fields provided or id mismatch)",
+					content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))
+			),
+			@ApiResponse(responseCode = "404", description = "No game exists with the provided id"),
+			@ApiResponse(responseCode = "500", description = "Unexpected server error")
+	})
+	public ResponseEntity<GameModel> patchGame(
+			@Parameter(description = "Unique game identifier", example = "1")
+			@PathVariable Integer gameId,
+			@RequestBody GameModel game) {
+		return gameService.patchGame(gameId, game)
 				.map(ResponseEntity::ok)
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}

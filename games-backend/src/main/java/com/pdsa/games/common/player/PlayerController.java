@@ -16,15 +16,17 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/players")
-@Tag(name = "Players", description = "Create, list, fetch, and delete player profiles used by game sessions")
+@Tag(name = "Players", description = "Create, list, fetch, update and delete player profiles used by game sessions")
 public class PlayerController {
 
 	private final PlayerService playerService;
@@ -120,6 +122,62 @@ public class PlayerController {
 			@Parameter(description = "Unique player identifier", example = "1")
 			@PathVariable Integer playerId) {
 		return playerService.getPlayerById(playerId)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@PutMapping("/{playerId}")
+	@Operation(
+			summary = "Replace player",
+			description = "Fully updates the player identified by `playerId` and returns the updated resource."
+	)
+	@ApiResponses({
+			@ApiResponse(
+					responseCode = "200",
+					description = "Player updated successfully",
+					content = @Content(mediaType = "application/json", schema = @Schema(implementation = PlayerModel.class))
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "Invalid request body (for example, path and body ids do not match)",
+					content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))
+			),
+			@ApiResponse(responseCode = "404", description = "No player exists with the provided id"),
+			@ApiResponse(responseCode = "500", description = "Unexpected server error")
+	})
+	public ResponseEntity<PlayerModel> updatePlayer(
+			@Parameter(description = "Unique player identifier", example = "1")
+			@PathVariable Integer playerId,
+			@RequestBody PlayerModel player) {
+		return playerService.updatePlayer(playerId, player)
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@PatchMapping("/{playerId}")
+	@Operation(
+			summary = "Partially update player",
+			description = "Partially updates mutable fields of the player identified by `playerId`."
+	)
+	@ApiResponses({
+			@ApiResponse(
+					responseCode = "200",
+					description = "Player updated successfully",
+					content = @Content(mediaType = "application/json", schema = @Schema(implementation = PlayerModel.class))
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "Invalid patch body (for example, no updatable fields provided or id mismatch)",
+					content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))
+			),
+			@ApiResponse(responseCode = "404", description = "No player exists with the provided id"),
+			@ApiResponse(responseCode = "500", description = "Unexpected server error")
+	})
+	public ResponseEntity<PlayerModel> patchPlayer(
+			@Parameter(description = "Unique player identifier", example = "1")
+			@PathVariable Integer playerId,
+			@RequestBody PlayerModel player) {
+		return playerService.patchPlayer(playerId, player)
 				.map(ResponseEntity::ok)
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
