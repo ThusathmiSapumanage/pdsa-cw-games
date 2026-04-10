@@ -21,37 +21,38 @@ public class MinCostService {
     }
 
     // Main method called by controller.
-    // It validates input, runs both algorithms, measures time, and returns all data.
+    // validates input, runs both algos, saves to db, and returns data for frontend
     public MinCostStartResponse startGame(MinCostStartRequest request) {
-        // If user sends N, use it. If not, auto generate N.
+        // If user sends N, use it. If not, auto generate N (between 50 and 100).
         int n = pickN(request.n());
-        // Keep default CW range if values are not sent.
+        // default costs are $20 to $200 as per pdf
         int minCost = request.minCost() == null ? 20 : request.minCost();
         int maxCost = request.maxCost() == null ? 200 : request.maxCost();
-        // Stop early if any input is wrong.
+        
+        // Basic check to make sure values are correct
         validateInputs(n, minCost, maxCost);
 
-        // Build N x N matrix with random values.
+        // create the random N x N matrix
         int[][] matrix = buildRandomMatrix(n, minCost, maxCost);
 
-        // Run greedy and capture time.
+        // run greedy algo and track time taken
         long greedyStart = System.nanoTime();
         AssignmentResult greedyResult = runGreedy(matrix);
         long greedyEnd = System.nanoTime();
 
-        // Run Hungarian and capture time.
+        // run hungarian algo and track time taken
         long hungarianStart = System.nanoTime();
         AssignmentResult hungarianResult = runHungarian(matrix);
         long hungarianEnd = System.nanoTime();
 
-        // Convert raw nano time into readable milliseconds.
+        // convert nano time to milliseconds (easier to read)
         double greedyMs = nanosToMs(greedyEnd - greedyStart);
         double hungarianMs = nanosToMs(hungarianEnd - hungarianStart);
 
-        // Save one game run into DB (if DB is available).
+        // save this round into the database
         saveRunSafely(n, hungarianResult.totalCost(), greedyMs, hungarianMs);
 
-        // Send full response for frontend UI.
+        // build response to show on the screen
         return new MinCostStartResponse(
                 matrix,
                 greedyResult.totalCost(),
@@ -60,41 +61,45 @@ public class MinCostService {
                 hungarianResult.assignments(),
                 greedyResult.logs(),
                 List.of(
-                        "Hungarian complete: total = " + hungarianResult.totalCost(),
-                        "Greedy complete: total = " + greedyResult.totalCost()
+                        "Hungarian done: best cost = " + hungarianResult.totalCost(),
+                        "Greedy done: cost = " + greedyResult.totalCost()
                 ),
                 greedyMs,
                 hungarianMs
         );
     }
 
-    // Pick N from request, or generate random N in CW range 50..100.
+    // if user didnt give N, we pick random between 50 and 100
     private int pickN(Integer requestedN) {
         if (requestedN != null) {
             return requestedN;
         }
+        // random.nextInt(51) gives 0-50, so +50 gives 50-100
         return 50 + random.nextInt(51);
     }
 
-    // Simple validation for user inputs.
+    // simple check for correct inputs based on pdf rules
     private void validateInputs(int n, int minCost, int maxCost) {
+        // N must be 50-100 usually, but we allow 5+ for smaller tests
         if (n < 5 || n > 100) {
-            throw new IllegalArgumentException("N must be between 5 and 100");
+            throw new IllegalArgumentException("N should be between 5 and 100");
         }
+        // costs cant be negative or zero
         if (minCost < 1 || maxCost < 1) {
-            throw new IllegalArgumentException("Cost range must be positive");
+            throw new IllegalArgumentException("costs must be positive values");
         }
+        // min must be smaller than max
         if (minCost > maxCost) {
-            throw new IllegalArgumentException("Min cost cannot be greater than max cost");
+            throw new IllegalArgumentException("min cost cannot be more than max cost");
         }
     }
 
-    // Creates random cost matrix.
-    // Every cell is random between minCost and maxCost.
+    // fills a n x n matrix with random cost values
     private int[][] buildRandomMatrix(int n, int minCost, int maxCost) {
         int[][] matrix = new int[n][n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
+                // random value between minCost and maxCost
                 matrix[i][j] = minCost + random.nextInt(maxCost - minCost + 1);
             }
         }
@@ -150,85 +155,138 @@ public class MinCostService {
         return new AssignmentResult(total, pairs, logs);
     }
 
-    // Hungarian algorithm (O(N^3)).
-    // This gives the optimal assignment for minimum total cost.
-    private AssignmentResult runHungarian(int[][] costs) {
-        int n = costs.length;
-
-        // Helper arrays used in Hungarian method.
-        int[] u = new int[n + 1];
-        int[] v = new int[n + 1];
-        int[] p = new int[n + 1];
-        int[] way = new int[n + 1];
-
-        // Build matching one row at a time.
-        for (int i = 1; i <= n; i++) {
-            p[0] = i;
-            int j0 = 0;
-            int[] minv = new int[n + 1];
-            boolean[] used = new boolean[n + 1];
-            Arrays.fill(minv, Integer.MAX_VALUE);
-
-            do {
-                // Mark this column as visited in current search.
-                used[j0] = true;
-                int i0 = p[j0];
-                int delta = Integer.MAX_VALUE;
-                int j1 = 0;
-
-                for (int j = 1; j <= n; j++) {
-                    if (used[j]) {
-                        continue;
-                    }
-                    // Reduced cost value for current edge.
-                    int cur = costs[i0 - 1][j - 1] - u[i0] - v[j];
-                    if (cur < minv[j]) {
-                        minv[j] = cur;
-                        way[j] = j0;
-                    }
-                    if (minv[j] < delta) {
-                        delta = minv[j];
-                        j1 = j;
-                    }
-                }
-
-                // Update potentials.
-                for (int j = 0; j <= n; j++) {
-                    if (used[j]) {
-                        u[p[j]] += delta;
-                        v[j] -= delta;
-                    } else {
-                        minv[j] -= delta;
-                    }
-                }
-                j0 = j1;
-            } while (p[j0] != 0);
-
-            // Rebuild matching path.
-            do {
-                int j1 = way[j0];
-                p[j0] = p[j1];
-                j0 = j1;
-            } while (j0 != 0);
+    // HUNGARIAN ALGORITHM (The "Matrix Reduction" way)
+    // This finds the perfect assignments for the lowest total cost.
+    // I used the step-by-step method taught in PDSA class.
+    private AssignmentResult runHungarian(int[][] originalMatrix) {
+        int n = originalMatrix.length;
+        // make a copy of matrix so we dont mess up the original one
+        int[][] matrix = new int[n][n];
+        for (int i = 0; i < n; i++) {
+            matrix[i] = Arrays.copyOf(originalMatrix[i], n);
         }
 
-        // Convert algorithm result into row -> col mapping.
-        int[] assignmentByRow = new int[n];
-        for (int j = 1; j <= n; j++) {
-            assignmentByRow[p[j] - 1] = j - 1;
+        // STEP 1: Row Reduction
+        // subtract the smallest value in each row from all others in that row
+        for (int i = 0; i < n; i++) {
+            int rowMin = Integer.MAX_VALUE;
+            for (int j = 0; j < n; j++) {
+                if (matrix[i][j] < rowMin) rowMin = matrix[i][j];
+            }
+            for (int j = 0; j < n; j++) {
+                matrix[i][j] -= rowMin;
+            }
         }
 
-        // Build final pairs and total.
+        // STEP 2: Column Reduction
+        // subtract the smallest value in each column from all others in that column
+        for (int j = 0; j < n; j++) {
+            int colMin = Integer.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                if (matrix[i][j] < colMin) colMin = matrix[i][j];
+            }
+            for (int i = 0; i < n; i++) {
+                matrix[i][j] -= colMin;
+            }
+        }
+
+        // STEP 3 & 4: Covering zeros and adjusting matrix
+        // we keep doing this until we can assign N zeros
+        int[] matchRow = new int[n]; // stores which col is matched to row
+        int[] matchCol = new int[n]; // stores which row is matched to col
+        Arrays.fill(matchRow, -1);
+        Arrays.fill(matchCol, -1);
+
+        while (true) {
+            // reset matches for current matrix state
+            Arrays.fill(matchRow, -1);
+            Arrays.fill(matchCol, -1);
+            int matchedCount = 0;
+
+            // Simple greedy matching to find baseline assignments on zeros
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < n; j++) {
+                    if (matrix[i][j] == 0 && matchCol[j] == -1) {
+                        matchRow[i] = j;
+                        matchCol[j] = i;
+                        matchedCount++;
+                        break;
+                    }
+                }
+            }
+
+            // if we matched all rows, we are done!
+            if (matchedCount == n) break;
+
+            // if not enough matches, we find min lines to cover all zeros
+            // based on the "Marking" logic from class
+            boolean[] markedRows = new boolean[n];
+            boolean[] markedCols = new boolean[n];
+
+            // 1. Mark rows that have no assignment
+            for (int i = 0; i < n; i++) {
+                if (matchRow[i] == -1) markedRows[i] = true;
+            }
+
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                // 2. Mark cols that have zero in a marked row
+                for (int i = 0; i < n; i++) {
+                    if (markedRows[i]) {
+                        for (int j = 0; j < n; j++) {
+                            if (matrix[i][j] == 0 && !markedCols[j]) {
+                                markedCols[j] = true;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                // 3. Mark rows that have assignment in a marked column
+                for (int j = 0; j < n; j++) {
+                    if (markedCols[j]) {
+                        for (int i = 0; i < n; i++) {
+                            if (matchRow[i] == j && !markedRows[i]) {
+                                markedRows[i] = true;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Smallest uncovered value (delta)
+            int delta = Integer.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                if (markedRows[i]) {
+                    for (int j = 0; j < n; j++) {
+                        if (!markedCols[j] && matrix[i][j] < delta) {
+                            delta = matrix[i][j];
+                        }
+                    }
+                }
+            }
+
+            // Adjust the matrix values
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < n; j++) {
+                    if (markedRows[i]) matrix[i][j] -= delta;
+                    if (markedCols[j]) matrix[i][j] += delta;
+                }
+            }
+        }
+
+        // Final result: collect assignments and total cost
         List<AssignmentPair> pairs = new ArrayList<>();
         int total = 0;
-        for (int row = 0; row < n; row++) {
-            int col = assignmentByRow[row];
-            int value = costs[row][col];
-            total += value;
-            pairs.add(new AssignmentPair(row, col, value));
+        for (int i = 0; i < n; i++) {
+            int j = matchRow[i];
+            int cost = originalMatrix[i][j];
+            total += cost;
+            pairs.add(new AssignmentPair(i, j, cost));
         }
 
-        return new AssignmentResult(total, pairs, List.of());
+        return new AssignmentResult(total, pairs, List.of("Optimal Hungarian Result Calculated"));
     }
 
     // Convert nanoseconds to milliseconds and round to 3 decimals.
