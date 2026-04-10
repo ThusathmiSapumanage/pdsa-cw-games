@@ -14,9 +14,17 @@ public class KnightsTourController {
         this.service = service;
     }
 
-    @PostMapping("/run-warnsdorff")
-    public ResponseEntity<KnightsTourModel> runWarnsdorff(@RequestBody KnightsTourModel request) {
-        return ResponseEntity.ok(service.runWarnsdorff(request));
+    @PostMapping("/start")
+    public ResponseEntity<KnightsTourModel.StartResponse> startRound(
+            @RequestBody KnightsTourModel.StartRequest request
+    ) {
+        return ResponseEntity.ok(service.startRound(request));
     }
 
+    @PostMapping("/submit")
+    public ResponseEntity<KnightsTourModel.AnswerResponse> submitAnswer(
+            @RequestBody KnightsTourModel.AnswerRequest request
+    ) {
+        return ResponseEntity.ok(service.submitAnswer(request));
+    }
 }

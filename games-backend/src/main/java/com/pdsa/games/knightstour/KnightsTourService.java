@@ -1,227 +1,362 @@
-    package com.pdsa.games.knightstour;
+package com.pdsa.games.knightstour;
 
-    import org.springframework.stereotype.Service;
-    import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-    import java.util.ArrayList;
-    import java.util.Comparator;
-    import java.util.List;
-    import java.util.Random;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
-    @Service
-    public class KnightsTourService {
+@Service
+public class KnightsTourService {
 
-        //Legal moves for a knight in chess (x and y offsets)
-        private static final int[] DX = {2, 1, -1, -2, -2, -1, 1, 2};
-        private static final int[] DY = {1, 2, 2, 1, -1, -2, -2, -1};
+    private static final int[] DX = {2, 1, -1, -2, -2, -1, 1, 2};
+    private static final int[] DY = {1, 2, 2, 1, -1, -2, -2, -1};
+    private static final String ALGORITHM_NAME = "Warnsdorff";
+    private static final int MAX_ATTEMPTS_TO_GENERATE = 40;
 
-        private final KnightsTourRepository repository;
-        private final Random random = new Random();
+    private final KnightsTourRepository repository;
+    private final Random random = new Random();
 
-        public KnightsTourService(KnightsTourRepository repository) {
-            this.repository = repository;
+    public KnightsTourService(KnightsTourRepository repository) {
+        this.repository = repository;
+    }
+
+    @Transactional
+    public KnightsTourModel.StartResponse startRound(KnightsTourModel.StartRequest request) {
+        validateStartRequest(request);
+
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
         }
 
-        //why transactional ? Because we want to ensure that all database operations related to a single execution of the Warnsdorff algorithm are treated as a single unit of work. If any part of the process fails (e.g., an exception is thrown while saving the game session or algorithm execution), the entire transaction will be rolled back, ensuring data integrity and preventing partial or inconsistent data from being stored in the database.
-        @Transactional
-        public KnightsTourModel runWarnsdorff(KnightsTourModel request) {
-            validateRequest(request);
+        int algorithmId = mustFindAlgorithmId(ALGORITHM_NAME);
 
-            int boardSize = request.getBoardSize();
+        GeneratedRound round = generateSuccessfulRound(request.getBoardSize());
 
-            int startXZeroBased = random.nextInt(boardSize);
-            int startYZeroBased = random.nextInt(boardSize);
+        Long sessionId = repository.createGameSession(request.getPlayerId());
 
-            Long sessionId = repository.createGameSession(request.getPlayerId());
-            int warnsdorffAlgorithmId = mustFindAlgorithmId("Warnsdorff");
+        repository.saveKnightTourGame(
+                sessionId,
+                request.getBoardSize(),
+                round.startX + 1,
+                round.startY + 1,
+                round.result.getMoveCount()
+        );
 
-            KnightsTourModel.AlgorithmResult warnsdorffResult =
-                    executeWarnsdorff(boardSize, startXZeroBased, startYZeroBased);
+        repository.saveAlgorithmExecution(
+                sessionId,
+                algorithmId,
+                round.result.getExecutionTimeMs(),
+                normalizeStatusForDb(round.result.getStatus())
+        );
 
-            int moveCountToSave = 0;
-            if ("SUCCESS".equals(warnsdorffResult.getStatus())) {
-                moveCountToSave = warnsdorffResult.getMoveCount();
-            }
+        repository.saveKnightMoves(
+                sessionId,
+                algorithmId,
+                round.result.getMoves()
+        );
 
-            repository.saveKnightTourGame(
-                    sessionId,
-                    boardSize,
-                    startXZeroBased + 1, // Convert to 1-based indexing for DB storage
-                    startYZeroBased + 1, // Convert to 1-based indexing for DB storage
-                    moveCountToSave
-            );
+        KnightsTourModel.StartResponse response = new KnightsTourModel.StartResponse();
+        response.setSessionId(sessionId);
+        response.setPlayerId(request.getPlayerId());
+        response.setBoardSize(request.getBoardSize());
+        response.setStartX(round.startX + 1);
+        response.setStartY(round.startY + 1);
+        response.setExpectedMoveCount(round.result.getMoveCount());
+        response.setAlgorithmName(round.result.getAlgorithmName());
+        response.setAlgorithmExecutionTimeMs(round.result.getExecutionTimeMs());
+        response.setStatus("READY");
+        response.setMessage("Knight's Tour round generated successfully.");
 
-            repository.saveAlgorithmExecution(
-                    sessionId,
-                    warnsdorffAlgorithmId,
-                    warnsdorffResult.getExecutionTimeMs(),
-                    normalizeStatusForDb(warnsdorffResult.getStatus())
-            );
+        return response;
+    }
 
-            // null safe check
-            if ("SUCCESS".equals(warnsdorffResult.getStatus())) {
-                repository.saveKnightMoves(sessionId, warnsdorffAlgorithmId, warnsdorffResult.getMoves());
-            }
+    @Transactional
+    public KnightsTourModel.AnswerResponse submitAnswer(KnightsTourModel.AnswerRequest request) {
+        validateAnswerRequest(request);
 
-            KnightsTourModel response = new KnightsTourModel();
-            response.setPlayerId(request.getPlayerId());
-            response.setSessionId(sessionId);
-            response.setBoardSize(boardSize);
-            response.setStartX(startXZeroBased + 1);
-            response.setStartY(startYZeroBased + 1);
-            response.setWarnsdorffResult(warnsdorffResult);
-
-            return response;
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
         }
 
-        private int mustFindAlgorithmId(String algorithmName) {
-            //cause int cant be null
-            Integer algorithmId = repository.findAlgorithmId(algorithmName);
-            if (algorithmId == null) {
-                throw new IllegalStateException("Algorithm '" + algorithmName + "' not found in Algorithm table.");
-            }
-            return algorithmId;
+        if (!repository.sessionBelongsToPlayer(request.getSessionId(), request.getPlayerId())) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
         }
 
-        private KnightsTourModel.AlgorithmResult executeWarnsdorff(int boardSize, int startX, int startY) {
-            long startNano = System.nanoTime(); //nanotime is used for measuring elapsed time.
+        int algorithmId = mustFindAlgorithmId(ALGORITHM_NAME);
+        List<KnightsTourModel.Move> correctMoves = repository.findCorrectMoves(request.getSessionId(), algorithmId);
 
-            KnightsTourModel.AlgorithmResult result = new KnightsTourModel.AlgorithmResult();
-            result.setAlgorithmName("Warnsdorff");
+        if (correctMoves.isEmpty()) {
+            throw new IllegalStateException("Correct Knight Tour path not found for this session.");
+        }
 
-            try {
-                List<KnightsTourModel.Move> moves = solveWarnsdorff(boardSize, startX, startY);
-                result.setStatus("SUCCESS");
-                result.setExecutionTimeMs(elapsedMs(startNano));
-                result.setMoveCount(moves.size());
-                result.setMoves(moves);
-                result.setMessage("Warnsdorff completed the full tour successfully.");
-                return result;
-            } catch (Exception e) {
-                result.setStatus("ERROR");
-                result.setExecutionTimeMs(elapsedMs(startNano));
-                result.setMoveCount(0);
-                result.setMoves(new ArrayList<>());
-                result.setMessage(e.getMessage());
-                return result;
+        boolean isCorrect = areMovesExactlyEqual(correctMoves, request.getMoves());
+
+        String responseSummary = buildResponseSummary(request.getMoves().size(), isCorrect);
+        Long responseId = repository.saveResponse(
+                request.getSessionId(),
+                responseSummary,
+                isCorrect
+        );
+
+        repository.saveResponseMoves(responseId, request.getMoves());
+
+        KnightsTourModel.AnswerResponse response = new KnightsTourModel.AnswerResponse();
+        response.setResponseId(responseId);
+        response.setSessionId(request.getSessionId());
+        response.setPlayerId(request.getPlayerId());
+        response.setCorrect(isCorrect);
+        response.setOutcome(isCorrect ? "WIN" : "LOSE");
+        response.setExpectedMoveCount(correctMoves.size());
+        response.setSubmittedMoveCount(request.getMoves().size());
+        response.setMessage(isCorrect
+                ? "Correct answer submitted."
+                : "Submitted move sequence does not match the correct answer.");
+
+        return response;
+    }
+
+    private GeneratedRound generateSuccessfulRound(int boardSize) {
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS_TO_GENERATE; attempt++) {
+            int startX = random.nextInt(boardSize);
+            int startY = random.nextInt(boardSize);
+
+            KnightsTourModel.AlgorithmResult result = executeWarnsdorff(boardSize, startX, startY);
+
+            if ("SUCCESS".equals(result.getStatus())) {
+                return new GeneratedRound(startX, startY, result);
             }
         }
 
-        private List<KnightsTourModel.Move> solveWarnsdorff(int boardSize, int startX, int startY) {
-            int[][] board = createEmptyBoard(boardSize);
+        throw new IllegalStateException("Could not generate a full Knight's Tour after several attempts.");
+    }
 
-            int currentX = startX;
-            int currentY = startY;
-            board[currentX][currentY] = 0;
+    private int mustFindAlgorithmId(String algorithmName) {
+        Integer algorithmId = repository.findAlgorithmId(algorithmName);
+        if (algorithmId == null) {
+            throw new IllegalStateException("Algorithm '" + algorithmName + "' not found.");
+        }
+        return algorithmId;
+    }
 
-            List<KnightsTourModel.Move> path = new ArrayList<>();
-            path.add(new KnightsTourModel.Move(1, currentX + 1, currentY + 1));
+    private KnightsTourModel.AlgorithmResult executeWarnsdorff(int boardSize, int startX, int startY) {
+        long startNano = System.nanoTime();
 
-            for (int moveNo = 1; moveNo < boardSize * boardSize; moveNo++) {
-                int[] nextMove = chooseBestNextMove(board, currentX, currentY, boardSize);
+        KnightsTourModel.AlgorithmResult result = new KnightsTourModel.AlgorithmResult();
+        result.setAlgorithmName(ALGORITHM_NAME);
 
-                if (nextMove == null) {
-                    throw new IllegalStateException("Warnsdorff could not complete a full tour from the selected start position.");
-                }
-
-                currentX = nextMove[0];
-                currentY = nextMove[1];
-                board[currentX][currentY] = moveNo;
-
-                path.add(new KnightsTourModel.Move(moveNo + 1, currentX + 1, currentY + 1));
-            }
-
-            return path;
+        try {
+            List<KnightsTourModel.Move> moves = solveWarnsdorff(boardSize, startX, startY);
+            result.setStatus("SUCCESS");
+            result.setExecutionTimeMs(elapsedMs(startNano));
+            result.setMoveCount(moves.size());
+            result.setMoves(moves);
+            result.setMessage("Warnsdorff completed the full tour successfully.");
+        } catch (Exception e) {
+            result.setStatus("ERROR");
+            result.setExecutionTimeMs(elapsedMs(startNano));
+            result.setMoveCount(0);
+            result.setMoves(new ArrayList<>());
+            result.setMessage(e.getMessage());
         }
 
-        private int[] chooseBestNextMove(int[][] board, int x, int y, int boardSize) {
-            List<int[]> candidates = new ArrayList<>();
+        return result;
+    }
 
-            for (int i = 0; i < 8; i++) {
-                int nextX = x + DX[i];
-                int nextY = y + DY[i];
+    private List<KnightsTourModel.Move> solveWarnsdorff(int boardSize, int startX, int startY) {
+        int[][] board = createEmptyBoard(boardSize);
 
-                if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
-                    int onwardMoves = countOnwardMoves(board, nextX, nextY, boardSize);
-                    candidates.add(new int[]{nextX, nextY, onwardMoves});
-                }
+        int currentX = startX;
+        int currentY = startY;
+        board[currentX][currentY] = 0;
+
+        List<KnightsTourModel.Move> path = new ArrayList<>();
+        path.add(new KnightsTourModel.Move(1, currentX + 1, currentY + 1));
+
+        for (int moveNo = 1; moveNo < boardSize * boardSize; moveNo++) {
+            int[] nextMove = chooseBestNextMove(board, currentX, currentY, boardSize);
+
+            if (nextMove == null) {
+                throw new IllegalStateException("Warnsdorff could not complete a full tour from the selected start position.");
             }
 
-            if (candidates.isEmpty()) {
-                return null;
-            }
+            currentX = nextMove[0];
+            currentY = nextMove[1];
+            board[currentX][currentY] = moveNo;
 
-            //sort from least to most onward count
-            candidates.sort(Comparator.comparingInt(a -> a[2]));
-
-            //select all candidates with the smallest onward count
-            int smallestOnwardCount = candidates.get(0)[2];
-            List<int[]> bestCandidates = new ArrayList<>();
-
-            for (int[] candidate : candidates) {
-                if (candidate[2] == smallestOnwardCount) {
-                    bestCandidates.add(candidate);
-                } else {
-                    break;
-                }
-            }
-
-            return bestCandidates.get(random.nextInt(bestCandidates.size()));
+            path.add(new KnightsTourModel.Move(moveNo + 1, currentX + 1, currentY + 1));
         }
 
-        private int countOnwardMoves(int[][] board, int x, int y, int boardSize) {
-            int count = 0;
+        return path;
+    }
 
-            for (int i = 0; i < 8; i++) {
-                int nextX = x + DX[i];
-                int nextY = y + DY[i];
+    private int[] chooseBestNextMove(int[][] board, int x, int y, int boardSize) {
+        List<int[]> candidates = new ArrayList<>();
 
-                if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
-                    count++;
-                }
+        for (int i = 0; i < 8; i++) {
+            int nextX = x + DX[i];
+            int nextY = y + DY[i];
+
+            if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
+                int onwardMoves = countOnwardMoves(board, nextX, nextY, boardSize);
+                candidates.add(new int[]{nextX, nextY, onwardMoves});
             }
-
-            return count;
         }
 
-        private int[][] createEmptyBoard(int boardSize) {
-            int[][] board = new int[boardSize][boardSize];
-
-            for (int row = 0; row < boardSize; row++) {
-                for (int col = 0; col < boardSize; col++) {
-                    board[row][col] = -1;
-                }
-            }
-
-            return board;
+        if (candidates.isEmpty()) {
+            return null;
         }
 
-        private boolean isValid(int x, int y, int boardSize) {
-            return x >= 0 && x < boardSize && y >= 0 && y < boardSize;
+        candidates.sort(Comparator.comparingInt(a -> a[2]));
+
+        int minimumOnwardMoves = candidates.get(0)[2];
+        List<int[]> bestCandidates = new ArrayList<>();
+
+        for (int[] candidate : candidates) {
+            if (candidate[2] == minimumOnwardMoves) {
+                bestCandidates.add(candidate);
+            } else {
+                break;
+            }
         }
 
-        private double elapsedMs(long startNano) {
-            return (System.nanoTime() - startNano) / 1_000_000.0;
+        return bestCandidates.get(random.nextInt(bestCandidates.size()));
+    }
+
+    private int countOnwardMoves(int[][] board, int x, int y, int boardSize) {
+        int count = 0;
+
+        for (int i = 0; i < 8; i++) {
+            int nextX = x + DX[i];
+            int nextY = y + DY[i];
+
+            if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
+                count++;
+            }
         }
 
-        private String normalizeStatusForDb(String status) {
-            if ("SUCCESS".equals(status)) {
-                return "SUCCESS";
+        return count;
+    }
+
+    private int[][] createEmptyBoard(int boardSize) {
+        int[][] board = new int[boardSize][boardSize];
+
+        for (int row = 0; row < boardSize; row++) {
+            for (int col = 0; col < boardSize; col++) {
+                board[row][col] = -1;
             }
-            return "ERROR";
         }
 
-        private void validateRequest(KnightsTourModel request) {
-            if (request == null) {
-                throw new IllegalArgumentException("Request cannot be null.");
+        return board;
+    }
+
+    private boolean isValid(int x, int y, int boardSize) {
+        return x >= 0 && x < boardSize && y >= 0 && y < boardSize;
+    }
+
+    private double elapsedMs(long startNano) {
+        return (System.nanoTime() - startNano) / 1_000_000.0;
+    }
+
+    private String normalizeStatusForDb(String status) {
+        return "SUCCESS".equals(status) ? "SUCCESS" : "ERROR";
+    }
+
+    private boolean areMovesExactlyEqual(List<KnightsTourModel.Move> correctMoves,
+                                         List<KnightsTourModel.Move> submittedMoves) {
+        if (correctMoves.size() != submittedMoves.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < correctMoves.size(); i++) {
+            KnightsTourModel.Move correct = correctMoves.get(i);
+            KnightsTourModel.Move submitted = submittedMoves.get(i);
+
+            if (correct.getStepNo() != submitted.getStepNo()
+                    || correct.getX() != submitted.getX()
+                    || correct.getY() != submitted.getY()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private String buildResponseSummary(int submittedMoveCount, boolean isCorrect) {
+        return (isCorrect ? "CORRECT_" : "WRONG_") + submittedMoveCount + "_MOVES";
+    }
+
+    private void validateStartRequest(KnightsTourModel.StartRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null.");
+        }
+
+        if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (request.getBoardSize() == null || (request.getBoardSize() != 8 && request.getBoardSize() != 16)) {
+            throw new IllegalArgumentException("Board size must be 8 or 16.");
+        }
+    }
+
+    private void validateAnswerRequest(KnightsTourModel.AnswerRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null.");
+        }
+
+        if (request.getSessionId() == null || request.getSessionId() <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (request.getMoves() == null || request.getMoves().isEmpty()) {
+            throw new IllegalArgumentException("Move sequence is required.");
+        }
+
+        Set<Integer> seenSteps = new HashSet<>();
+        Set<String> seenCells = new HashSet<>();
+
+        for (KnightsTourModel.Move move : request.getMoves()) {
+            if (move == null) {
+                throw new IllegalArgumentException("Move list contains null entry.");
             }
 
-            if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
-                throw new IllegalArgumentException("Valid playerId is required.");
+            if (move.getStepNo() <= 0) {
+                throw new IllegalArgumentException("Each move must have a positive step number.");
             }
 
-            if (request.getBoardSize() == null || (request.getBoardSize() != 8 && request.getBoardSize() != 16)) {
-                throw new IllegalArgumentException("Board size must be 8 or 16.");
+            if (move.getX() <= 0 || move.getY() <= 0) {
+                throw new IllegalArgumentException("Coordinates must be positive.");
+            }
+
+            if (!seenSteps.add(move.getStepNo())) {
+                throw new IllegalArgumentException("Duplicate step number found: " + move.getStepNo());
+            }
+
+            String cellKey = move.getX() + "_" + move.getY();
+            if (!seenCells.add(cellKey)) {
+                throw new IllegalArgumentException("Duplicate board cell found in response: (" + move.getX() + "," + move.getY() + ")");
             }
         }
     }
+
+    private static class GeneratedRound {
+        private final int startX;
+        private final int startY;
+        private final KnightsTourModel.AlgorithmResult result;
+
+        public GeneratedRound(int startX, int startY, KnightsTourModel.AlgorithmResult result) {
+            this.startX = startX;
+            this.startY = startY;
+            this.result = result;
+        }
+    }
+}
