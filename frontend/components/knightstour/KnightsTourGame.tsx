@@ -81,15 +81,17 @@ export default function KnightTourGame() {
     const existing = selectedMoves.find((move) => move.x === x && move.y === y);
 
     if (existing) {
-      setSelectedMoves((prev) =>
-        prev
-          .filter((move) => !(move.x === x && move.y === y))
-          .map((move, index) => ({
-            ...move,
-            stepNo: index + 1,
-          }))
-      );
-      return;
+    const lastMove = selectedMoves[selectedMoves.length - 1];
+
+    if (lastMove.x === x && lastMove.y === y) {
+        setMoveError("");
+        setSelectedMoves((prev) => prev.slice(0, -1));
+    } else {
+        setMoveError(
+        "You can only remove the most recent move. Use Undo Last to go back step by step."
+        );
+    }
+    return;
     }
 
     if (selectedMoves.length >= maxMoves) {
