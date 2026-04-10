@@ -122,11 +122,13 @@ CREATE TABLE IF NOT EXISTS Roads (
 -- Ordered move list produced by Knight Tour.
 CREATE TABLE IF NOT EXISTS Knight_Move (
     Session_Id INT UNSIGNED NOT NULL,
+    Algorithm_Id INT UNSIGNED NOT NULL,
     Step_No SMALLINT UNSIGNED NOT NULL,
     X_Value TINYINT UNSIGNED NOT NULL,
     Y_Value TINYINT UNSIGNED NOT NULL,
-    PRIMARY KEY (Session_Id, Step_No),
-    FOREIGN KEY (Session_Id) REFERENCES Knight_Tour_Game(Session_Id) ON DELETE CASCADE
+    PRIMARY KEY (Session_Id, Algorithm_Id, Step_No),
+    FOREIGN KEY (Session_Id) REFERENCES Knight_Tour_Game(Session_Id) ON DELETE CASCADE,
+    FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
 );
 
 -- Stores each 16-Queens solution discovered/generated.
@@ -157,4 +159,15 @@ CREATE TABLE IF NOT EXISTS Algorithm_Execute (
     PRIMARY KEY (Session_Id, Algorithm_Id),
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE,
     FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
+);
+
+-- Record user input as the users path.
+CREATE TABLE IF NOT EXISTS Knight_Tour_Response_Move (
+    Response_Id INT UNSIGNED NOT NULL,
+    Step_No SMALLINT UNSIGNED NOT NULL,
+    X_Value TINYINT UNSIGNED NOT NULL,
+    Y_Value TINYINT UNSIGNED NOT NULL,
+    PRIMARY KEY (Response_Id, Step_No),
+    CONSTRAINT fk_ktrm_response
+        FOREIGN KEY (Response_Id) REFERENCES Response(Response_Id) ON DELETE CASCADE
 );
