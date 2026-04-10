@@ -27,4 +27,12 @@ public class KnightsTourController {
     ) {
         return ResponseEntity.ok(service.submitAnswer(request));
     }
+
+    @GetMapping("/{sessionId}/correct-answer")
+    public ResponseEntity<KnightsTourModel.CorrectAnswerResponse> getCorrectAnswer(
+            @PathVariable Long sessionId,
+            @RequestParam Long playerId
+    ) {
+        return ResponseEntity.ok(service.getCorrectAnswer(sessionId, playerId));
+    }
 }

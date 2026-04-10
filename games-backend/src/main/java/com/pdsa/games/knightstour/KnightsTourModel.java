@@ -318,4 +318,61 @@ public class KnightsTourModel {
             this.message = message;
         }
     }
+
+    public static class CorrectAnswerResponse {
+        private Long sessionId;
+        private Long playerId;
+        private String algorithmName;
+        private Integer moveCount;
+        private List<Move> moves;
+        private String message;
+
+        public Long getSessionId() {
+            return sessionId;
+        }
+
+        public void setSessionId(Long sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public Long getPlayerId() {
+            return playerId;
+        }
+
+        public void setPlayerId(Long playerId) {
+            this.playerId = playerId;
+        }
+
+        public String getAlgorithmName() {
+            return algorithmName;
+        }
+
+        public void setAlgorithmName(String algorithmName) {
+            this.algorithmName = algorithmName;
+        }
+
+        public Integer getMoveCount() {
+            return moveCount;
+        }
+
+        public void setMoveCount(Integer moveCount) {
+            this.moveCount = moveCount;
+        }
+
+        public List<Move> getMoves() {
+            return moves;
+        }
+
+        public void setMoves(List<Move> moves) {
+            this.moves = moves;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+    }
 }

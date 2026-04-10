@@ -175,4 +175,13 @@ public class KnightsTourRepository {
                 }
         );
     }
+
+    public boolean sessionExists(Long sessionId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM Game_Session WHERE Session_Id = ?",
+                Integer.class,
+                sessionId
+        );
+        return count != null && count > 0;
+    }
 }

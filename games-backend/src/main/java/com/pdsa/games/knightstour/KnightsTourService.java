@@ -359,4 +359,44 @@ public class KnightsTourService {
             this.result = result;
         }
     }
+
+    @Transactional(readOnly = true)
+    public KnightsTourModel.CorrectAnswerResponse getCorrectAnswer(Long sessionId, Long playerId) {
+        if (sessionId == null || sessionId <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (playerId == null || playerId <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (!repository.playerExists(playerId)) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
+
+        if (!repository.sessionExists(sessionId)) {
+            throw new IllegalArgumentException("Session does not exist.");
+        }
+
+        if (!repository.sessionBelongsToPlayer(sessionId, playerId)) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
+        }
+
+        int algorithmId = mustFindAlgorithmId(ALGORITHM_NAME);
+        List<KnightsTourModel.Move> correctMoves = repository.findCorrectMoves(sessionId, algorithmId);
+
+        if (correctMoves.isEmpty()) {
+            throw new IllegalStateException("Correct Knight Tour path not found for this session.");
+        }
+
+        KnightsTourModel.CorrectAnswerResponse response = new KnightsTourModel.CorrectAnswerResponse();
+        response.setSessionId(sessionId);
+        response.setPlayerId(playerId);
+        response.setAlgorithmName(ALGORITHM_NAME);
+        response.setMoveCount(correctMoves.size());
+        response.setMoves(correctMoves);
+        response.setMessage("Correct answer loaded successfully.");
+
+        return response;
+    }
 }
