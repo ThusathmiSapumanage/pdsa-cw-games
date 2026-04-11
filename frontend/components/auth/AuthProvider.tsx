@@ -13,7 +13,7 @@ type AuthContextValue = {
   isReady: boolean;
   userEmail: string | null;
   accessToken: string | null;
-  login: (email: string, token: string) => void;
+  login: (_e: string, _t: string) => void;
   logout: () => void;
 };
 

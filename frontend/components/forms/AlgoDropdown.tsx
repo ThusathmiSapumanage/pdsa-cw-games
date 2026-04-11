@@ -12,7 +12,7 @@ interface AlgoDropdownProps {
   label: string;
   options: Option[];
   value: string;
-  onChange: (value: string) => void;
+  onChange: (_v: string) => void; // eslint-disable-line no-unused-vars
   placeholder?: string;
 }
 
