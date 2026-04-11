@@ -144,45 +144,68 @@ export default function MinimumCostPage() {
     if (result) setCurrentStep(undefined);
   }, [result]);
 
-  // Main function to call backend and get matrix + results.
+  // This is the main function to trigger our game logic
   const runGame = async () => {
+    // Basic numbers conversion
     const nValue = Number(n);
     const minValue = Number(minCost);
     const maxValue = Number(maxCost);
 
-    // Basic range checks (N between 5 and 100).
+    // Initial validation check before we call backend
     if (!Number.isInteger(nValue) || nValue < 5 || nValue > 100) {
-      setNotify({ show: true, type: "error", title: "Invalid N", message: "N must be between 5 and 100." });
-      return;
-    }
-    if (minValue < 1 || maxValue < minValue) {
-      setNotify({ show: true, type: "error", title: "Bad Range", message: "Min must be > 0 and <= Max." });
+      setNotify({ 
+        show: true, 
+        type: "error", 
+        title: "Input Error", 
+        message: "Size (N) must be a whole number between 5 and 100!" 
+      });
       return;
     }
 
+    // Set loading to true so user knows something is happening
     setIsLoading(true);
+    
     try {
-      // Connect to our Spring Boot API.
+      // Connect to our Spring Boot backend using a POST request
       const response = await fetch("http://localhost:8080/api/mincost/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ n: nValue, minCost: minValue, maxCost: maxValue }),
+        headers: { 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          n: nValue, 
+          minCost: minValue, 
+          maxCost: maxValue 
+        }),
       });
       
+      // Get the JSON data from our response
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Backend failed");
+      
+      // If the backend sent an error, we throw it to catch block
+      if (!response.ok) {
+        throw new Error(data.error || "Backend server failed to process request");
+      }
 
+      // If all good, we save the result and show a success popup
       setResult(data);
-      setNotify({ show: true, type: "success", title: "Success", message: "Matrix generated and algorithms ran!" });
+      setNotify({ 
+        show: true, 
+        type: "success", 
+        title: "Game Started", 
+        message: "Matrix generated and strategies executed successfully!" 
+      });
+
     } catch (error) {
-      // Catch network or server errors.
+      // If network is down or server crashed, we show this error
       setNotify({
         show: true,
         type: "error",
-        title: "Connection Error",
-        message: error instanceof Error ? error.message : "Backend is offline.",
+        title: "System Error",
+        message: error instanceof Error ? error.message : "Cannot reach the backend server.",
       });
     } finally {
+      // Always stop loading at the end
       setIsLoading(false);
     }
   };
@@ -219,9 +242,19 @@ export default function MinimumCostPage() {
             <button
               onClick={runGame}
               disabled={isLoading}
-              className="bg-white text-black py-4 rounded-lg font-bold uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all text-[10px] disabled:opacity-30 shadow-lg active:scale-95"
+              className="relative flex items-center justify-center bg-white text-black py-4 rounded-lg font-bold uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all text-[10px] disabled:opacity-30 shadow-lg active:scale-95 overflow-hidden group"
             >
-              {isLoading ? "Running..." : "GENERATE & RUN"}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-black group-hover:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Running Algorithms...</span>
+                </>
+              ) : (
+                "GENERATE & RUN"
+              )}
             </button>
 
             {/* NEW: Step-by-Step UI Controls */}
