@@ -43,6 +43,54 @@ public class KnightsTourModel {
         }
     }
 
+    public static class GameConfig {
+        private Long sessionId;
+        private Integer boardSize;
+        private Integer startX;
+        private Integer startY;
+        private Integer moveCount;
+
+        public Long getSessionId() {
+            return sessionId;
+        }
+
+        public void setSessionId(Long sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public Integer getBoardSize() {
+            return boardSize;
+        }
+
+        public void setBoardSize(Integer boardSize) {
+            this.boardSize = boardSize;
+        }
+
+        public Integer getStartX() {
+            return startX;
+        }
+
+        public void setStartX(Integer startX) {
+            this.startX = startX;
+        }
+
+        public Integer getStartY() {
+            return startY;
+        }
+
+        public void setStartY(Integer startY) {
+            this.startY = startY;
+        }
+
+        public Integer getMoveCount() {
+            return moveCount;
+        }
+
+        public void setMoveCount(Integer moveCount) {
+            this.moveCount = moveCount;
+        }
+    }
+
     public static class AlgorithmResult {
         private String algorithmName;
         private String status;
@@ -252,6 +300,17 @@ public class KnightsTourModel {
         private String outcome;
         private Integer expectedMoveCount;
         private Integer submittedMoveCount;
+        private Boolean structuralValid;
+        private Boolean completeTour;
+        private Boolean deadEnd;
+        private Boolean warnsdorffValid;
+        private Boolean backtrackingValid; // placeholder only
+        private String validationSource;
+        private String reasonCode;
+        private List<Move> warnsdorffCorrectMoves;
+        private Integer warnsdorffMoveCount;
+        private List<Move> backtrackingCorrectMoves; // placeholder only
+        private Integer backtrackingMoveCount; // placeholder only
         private String message;
 
         public Long getResponseId() {
@@ -308,6 +367,94 @@ public class KnightsTourModel {
 
         public void setSubmittedMoveCount(Integer submittedMoveCount) {
             this.submittedMoveCount = submittedMoveCount;
+        }
+
+        public Boolean getStructuralValid() {
+            return structuralValid;
+        }
+
+        public void setStructuralValid(Boolean structuralValid) {
+            this.structuralValid = structuralValid;
+        }
+
+        public Boolean getCompleteTour() {
+            return completeTour;
+        }
+
+        public void setCompleteTour(Boolean completeTour) {
+            this.completeTour = completeTour;
+        }
+
+        public Boolean getDeadEnd() {
+            return deadEnd;
+        }
+
+        public void setDeadEnd(Boolean deadEnd) {
+            this.deadEnd = deadEnd;
+        }
+
+        public Boolean getWarnsdorffValid() {
+            return warnsdorffValid;
+        }
+
+        public void setWarnsdorffValid(Boolean warnsdorffValid) {
+            this.warnsdorffValid = warnsdorffValid;
+        }
+
+        public Boolean getBacktrackingValid() {
+            return backtrackingValid;
+        }
+
+        public void setBacktrackingValid(Boolean backtrackingValid) {
+            this.backtrackingValid = backtrackingValid;
+        }
+
+        public String getValidationSource() {
+            return validationSource;
+        }
+
+        public void setValidationSource(String validationSource) {
+            this.validationSource = validationSource;
+        }
+
+        public String getReasonCode() {
+            return reasonCode;
+        }
+
+        public void setReasonCode(String reasonCode) {
+            this.reasonCode = reasonCode;
+        }
+
+        public List<Move> getWarnsdorffCorrectMoves() {
+            return warnsdorffCorrectMoves;
+        }
+
+        public void setWarnsdorffCorrectMoves(List<Move> warnsdorffCorrectMoves) {
+            this.warnsdorffCorrectMoves = warnsdorffCorrectMoves;
+        }
+
+        public Integer getWarnsdorffMoveCount() {
+            return warnsdorffMoveCount;
+        }
+
+        public void setWarnsdorffMoveCount(Integer warnsdorffMoveCount) {
+            this.warnsdorffMoveCount = warnsdorffMoveCount;
+        }
+
+        public List<Move> getBacktrackingCorrectMoves() {
+            return backtrackingCorrectMoves;
+        }
+
+        public void setBacktrackingCorrectMoves(List<Move> backtrackingCorrectMoves) {
+            this.backtrackingCorrectMoves = backtrackingCorrectMoves;
+        }
+
+        public Integer getBacktrackingMoveCount() {
+            return backtrackingMoveCount;
+        }
+
+        public void setBacktrackingMoveCount(Integer backtrackingMoveCount) {
+            this.backtrackingMoveCount = backtrackingMoveCount;
         }
 
         public String getMessage() {

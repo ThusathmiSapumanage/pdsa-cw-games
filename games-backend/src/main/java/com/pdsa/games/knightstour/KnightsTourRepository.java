@@ -85,6 +85,27 @@ public class KnightsTourRepository {
         );
     }
 
+    public KnightsTourModel.GameConfig findGameConfig(Long sessionId) {
+        RowMapper<KnightsTourModel.GameConfig> rowMapper = (rs, rowNum) -> {
+            KnightsTourModel.GameConfig config = new KnightsTourModel.GameConfig();
+            config.setSessionId(rs.getLong("Session_Id"));
+            config.setBoardSize(rs.getInt("Board_Size"));
+            config.setStartX(rs.getInt("X_Start"));
+            config.setStartY(rs.getInt("Y_Start"));
+            config.setMoveCount(rs.getInt("Move_Count"));
+            return config;
+        };
+
+        List<KnightsTourModel.GameConfig> results = jdbcTemplate.query(
+                "SELECT Session_Id, Board_Size, X_Start, Y_Start, Move_Count " +
+                        "FROM Knight_Tour_Game WHERE Session_Id = ?",
+                rowMapper,
+                sessionId
+        );
+
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     public void saveKnightMoves(Long sessionId, int algorithmId, List<KnightsTourModel.Move> moves) {
         jdbcTemplate.batchUpdate(
                 "INSERT INTO Knight_Move (Session_Id, Algorithm_Id, Step_No, X_Value, Y_Value) VALUES (?, ?, ?, ?, ?)",
