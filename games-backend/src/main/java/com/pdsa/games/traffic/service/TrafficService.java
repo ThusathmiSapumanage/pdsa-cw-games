@@ -35,6 +35,8 @@ import com.pdsa.games.traffic.model.RoadId;
 import com.pdsa.games.traffic.model.TrafficSimGame;
 import com.pdsa.games.traffic.repository.RoadRepository;
 import com.pdsa.games.traffic.repository.TrafficSimGameRepository;
+import com.pdsa.games.common.response.ResponseModel;
+import com.pdsa.games.common.response.ResponseRepository;
 
 @Service
 public class TrafficService {
@@ -60,6 +62,7 @@ public class TrafficService {
     private final AlgorithmExecuteRepository algorithmExecuteRepository;
     private final GameSessionRepository gameSessionRepository;
     private final PlayerRepository playerRepository;
+    private final ResponseRepository responseRepository;
     private final Random random = new Random();
 
     public TrafficService(
@@ -69,7 +72,8 @@ public class TrafficService {
             AlgorithmRepository algorithmRepository,
             AlgorithmExecuteRepository algorithmExecuteRepository,
             GameSessionRepository gameSessionRepository,
-            PlayerRepository playerRepository
+            PlayerRepository playerRepository,
+            ResponseRepository responseRepository
     ) {
         this.roadRepository = roadRepository;
         this.trafficSimGameRepository = trafficSimGameRepository;
@@ -78,6 +82,7 @@ public class TrafficService {
         this.algorithmExecuteRepository = algorithmExecuteRepository;
         this.gameSessionRepository = gameSessionRepository;
         this.playerRepository = playerRepository;
+        this.responseRepository = responseRepository;
     }
 
     @Transactional
@@ -128,8 +133,24 @@ public class TrafficService {
 
         GameSessionModel session = validateSession(sessionId);
         Integer correct = getSavedMaxFlow(sessionId);
-        boolean isCorrect = correct.equals(answer);
-        return new AnswerSubmissionResult(isCorrect, isCorrect ? correct : null, getPlayerName(session.getPlayerId()));
+
+        boolean alreadyCorrect = responseRepository.findBySessionId(sessionId)
+                .stream()
+                .anyMatch(r -> Boolean.TRUE.equals(r.getIsCorrect()));
+
+        boolean isCorrect = !alreadyCorrect && correct.equals(answer);
+
+        ResponseModel response = new ResponseModel();
+        response.setSessionId(sessionId);
+        response.setResponse(String.valueOf(answer));
+        response.setIsCorrect(isCorrect);
+        responseRepository.save(response);
+
+        return new AnswerSubmissionResult(
+            isCorrect,
+            isCorrect ? correct : null,
+            getPlayerName(session.getPlayerId())
+        );
     }
 
     public Integer getSavedMaxFlow(Integer sessionId) {

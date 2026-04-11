@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import AuthGate from "../../../components/auth/AuthGate";
+import { useAuth } from "../../../components/auth/AuthProvider";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 
-const SESSION_ID = 1;
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const GAME_ID = 3;
 
 const NODE_POSITIONS: Record<string, { x: number; y: number; kind?: string }> = {
   A: { x: 70, y: 220, kind: "source" },
@@ -31,6 +32,15 @@ const EDGE_ORDER = [
 
 const keyFor = (a: string, b: string) => `${a}-${b}`;
 
+function decodeEmail(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub || payload.playerEmail || null;
+  } catch {
+    return null;
+  }
+}
+
 async function readJson(response: Response, fallback: string) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
@@ -39,6 +49,8 @@ async function readJson(response: Response, fallback: string) {
 }
 
 export default function TrafficSimulationPage() {
+  const { accessToken, isReady } = useAuth();
+  const [sessionId, setSessionId] = useState<number | null>(null);
   const [roads, setRoads] = useState<any[]>([]);
   const [answer, setAnswer] = useState("");
   const [dinicRun, setDinicRun] = useState<any>(null);
@@ -50,69 +62,111 @@ export default function TrafficSimulationPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    generateRound();
-  }, []);
+    if (!isReady || !accessToken || sessionId) {
+      return;
+    }
+    initializeSession();
+  }, [isReady, accessToken, sessionId]);
 
-  const roadMap = useMemo(() => {
-    return roads.reduce((acc: Record<string, number>, road: any) => {
-      acc[keyFor(road.id.startNode, road.id.endNode)] = road.capacity;
-      return acc;
-    }, {});
-  }, [roads]);
+  async function initializeSession() {
+    try {
+      const token = accessToken;
+      if (!token) throw new Error("Please login first.");
+      const email = decodeEmail(token);
+      if (!email) throw new Error("Invalid login token.");
+
+      const playersRes = await fetch(`${API_BASE_URL}/api/players`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const players = await readJson(playersRes, "Unable to load player profile");
+      const currentPlayer = players.find((p: any) => p.playerEmail === email);
+      if (!currentPlayer) throw new Error("Player account not found.");
+
+      const sessionRes = await fetch(`${API_BASE_URL}/api/game-sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ gameId: GAME_ID, playerId: currentPlayer.playerId }),
+      });
+
+      const session = await readJson(sessionRes, "Unable to create game session");
+      setSessionId(session.sessionId);
+      generateRound(session.sessionId);
+    } catch (e: any) {
+      setError(e.message);
+      setStatus("Session initialization failed.");
+    }
+  }
+
+  const roadMap = useMemo(() => roads.reduce((acc: any, road: any) => {
+    acc[keyFor(road.id.startNode, road.id.endNode)] = road.capacity;
+    return acc;
+  }, {}), [roads]);
 
   const bottleneckThreshold = useMemo(() => {
-    const vals = Object.values(roadMap);
+    const vals = Object.values(roadMap) as number[];
     return vals.length ? Math.min(...vals) + 1 : 0;
   }, [roadMap]);
 
-  async function generateRound() {
+  async function generateRound(activeSessionId = sessionId) {
+    const token = accessToken;
+    if (!activeSessionId || !token) return;
+
     setLoading(true);
-    setError("");
     setSubmission(null);
     setAnswer("");
-    setStatus("Generating live traffic matrix and benchmarking both algorithms...");
+    setError("");
 
     try {
-      const generated = await fetch(`${API_BASE_URL}/api/traffic-sim/generate/${SESSION_ID}`, {
+      const generated = await fetch(`${API_BASE_URL}/api/traffic-sim/generate/${activeSessionId}`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const nextRoads = await readJson(generated, "Unable to generate network");
-      setRoads(nextRoads || []);
+      setRoads(await readJson(generated, "Unable to generate network"));
 
-      const [dinicRes, fordRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/traffic-sim/dinic/${SESSION_ID}`),
-        fetch(`${API_BASE_URL}/api/traffic-sim/ford/${SESSION_ID}`),
+      const [dRes, fRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/traffic-sim/dinic/${activeSessionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/traffic-sim/ford/${activeSessionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
-      setDinicRun(await readJson(dinicRes, "Dinic failed"));
-      setFordRun(await readJson(fordRes, "Ford-Fulkerson failed"));
+      setDinicRun(await readJson(dRes, "Dinic failed"));
+      setFordRun(await readJson(fRes, "Ford failed"));
       setStatus("System active. Trace the animated routes and compute max flow.");
     } catch (e: any) {
-      setError(e.message || "Round setup failed");
-      setStatus("Round setup failed.");
+      setError(e.message);
     } finally {
       setLoading(false);
     }
   }
 
   async function submitAnswer() {
+    const token = accessToken;
+    if (!sessionId || !token) return;
     if (!answer.trim()) {
       setError("Enter a max flow value first.");
       return;
     }
 
     setSubmitting(true);
-    setError("");
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/traffic-sim/submit/${SESSION_ID}?answer=${encodeURIComponent(answer)}`,
-        { method: "POST" }
+        `${API_BASE_URL}/api/traffic-sim/submit/${sessionId}?answer=${encodeURIComponent(answer)}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       const data = await readJson(res, "Submit failed");
       setSubmission(data);
       setStatus(data.correct ? "Correct maximum flow identified." : "Incorrect answer. Trace bottlenecks and retry.");
     } catch (e: any) {
-      setError(e.message || "Submit failed");
+      setError(e.message);
     } finally {
       setSubmitting(false);
     }
@@ -134,7 +188,7 @@ export default function TrafficSimulationPage() {
       </div>
 
       <button
-        onClick={generateRound}
+        onClick={() => generateRound()}
         disabled={loading}
         className="bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs"
       >
@@ -220,13 +274,15 @@ export default function TrafficSimulationPage() {
   );
 
   return (
-    <GameLayoutShell
-      gameId="03"
-      title="TRAFFIC SIMULATION"
-      description="Maximum vehicle throughput analysis across a directed network with animated flow routes and bottleneck detection."
-      controls={controls}
-      visualization={visualization}
-      results={results}
-    />
+    <AuthGate>
+      <GameLayoutShell
+        gameId="03"
+        title="TRAFFIC SIMULATION"
+        description="Maximum vehicle throughput analysis across a directed network with animated flow routes and bottleneck detection."
+        controls={controls}
+        visualization={visualization}
+        results={results}
+      />
+    </AuthGate>
   );
 }
