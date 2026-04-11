@@ -33,8 +33,20 @@ type ApiResponse = {
   hungarianAssignments: Assignment[];
   greedyLogs: string[];
   hungarianLogs: string[];
+  hungarianSteps: HungarianStep[];
   greedyTimeMs: number;
   hungarianTimeMs: number;
+};
+
+type HungarianStep = {
+  type: string;
+  matrix: number[][];
+  description: string;
+  rowMinVals: number[] | null;
+  colMinVals: number[] | null;
+  markedRows: boolean[] | null;
+  markedCols: boolean[] | null;
+  delta: number | null;
 };
 
 // Shape of a past game record

@@ -60,7 +60,8 @@ public class MinCostService {
                 greedyResult.assignments(),
                 hungarianResult.assignments(),
                 greedyResult.logs(),
-                hungarianResult.logs(), // This now has detailed notes
+                hungarianResult.logs(), 
+                hungarianResult.steps(), // NEW: detailed steps for visualizer
                 greedyMs,
                 hungarianMs
         );
@@ -189,35 +190,41 @@ public class MinCostService {
         }
 
         List<String> logs = new ArrayList<>();
+        List<HungarianStep> steps = new ArrayList<>();
+        
+        // Initial state
+        steps.add(new HungarianStep("INITIAL", copyMatrix(originalMatrix), "Starting Matrix", null, null, null, null, null));
         logs.add("Start Hungarian: Goal is to find the perfect assignment for the lowest total.");
 
         // STEP 1: Row Reduction
-        // subtract the smallest value in each row from all others in that row
+        int[] rowMins = new int[n];
         for (int i = 0; i < n; i++) {
             int rowMin = Integer.MAX_VALUE;
             for (int j = 0; j < n; j++) {
                 if (matrix[i][j] < rowMin) rowMin = matrix[i][j];
             }
+            rowMins[i] = rowMin;
             for (int j = 0; j < n; j++) {
                 matrix[i][j] -= rowMin;
             }
-            if (n <= 10) logs.add("Row " + (i + 1) + ": subtracted min value " + rowMin);
         }
-        if (n > 10) logs.add("Completed Row Reduction phase for all " + n + " rows.");
+        steps.add(new HungarianStep("ROW_REDUCTION", copyMatrix(matrix), "Subtracted row minimums", rowMins, null, null, null, null));
+        if (n <= 10) logs.add("Completed Row Reduction phase.");
 
         // STEP 2: Column Reduction
-        // subtract the smallest value in each column from all others in that column
+        int[] colMins = new int[n];
         for (int j = 0; j < n; j++) {
             int colMin = Integer.MAX_VALUE;
             for (int i = 0; i < n; i++) {
                 if (matrix[i][j] < colMin) colMin = matrix[i][j];
             }
+            colMins[j] = colMin;
             for (int i = 0; i < n; i++) {
                 matrix[i][j] -= colMin;
             }
-            if (n <= 10) logs.add("Column " + (j + 1) + ": subtracted min value " + colMin);
         }
-        if (n > 10) logs.add("Completed Column Reduction phase for all " + n + " columns.");
+        steps.add(new HungarianStep("COL_REDUCTION", copyMatrix(matrix), "Subtracted column minimums", null, colMins, null, null, null));
+        if (n > 10) logs.add("Completed Column Reduction phase.");
         
         logs.add("Starting assignment search on reduced zeros...");
 
@@ -247,13 +254,16 @@ public class MinCostService {
             }
 
             // if we matched all rows, we are done!
-            if (matchedCount == n) break;
+            if (matchedCount == n) {
+                steps.add(new HungarianStep("FINAL_MATCH", copyMatrix(matrix), "Optimal zero-assignments found", null, null, null, null, null));
+                break;
+            }
 
             // if not enough matches, we find min lines to cover all zeros
-            // based on the "Marking" logic from class
             boolean[] markedRows = new boolean[n];
             boolean[] markedCols = new boolean[n];
 
+            // ... (rest of marking logic remains same) ...
             // 1. Mark rows that have no assignment
             for (int i = 0; i < n; i++) {
                 if (matchRow[i] == -1) markedRows[i] = true;
@@ -262,7 +272,6 @@ public class MinCostService {
             boolean changed = true;
             while (changed) {
                 changed = false;
-                // 2. Mark cols that have zero in a marked row
                 for (int i = 0; i < n; i++) {
                     if (markedRows[i]) {
                         for (int j = 0; j < n; j++) {
@@ -273,7 +282,6 @@ public class MinCostService {
                         }
                     }
                 }
-                // 3. Mark rows that have assignment in a marked column
                 for (int j = 0; j < n; j++) {
                     if (markedCols[j]) {
                         for (int i = 0; i < n; i++) {
@@ -285,6 +293,10 @@ public class MinCostService {
                     }
                 }
             }
+
+            // Cover lines are: unmarked rows and marked columns
+            boolean[] coverRows = new boolean[n];
+            for(int i=0; i<n; i++) coverRows[i] = !markedRows[i];
 
             // Smallest uncovered value (delta)
             int delta = Integer.MAX_VALUE;
@@ -298,6 +310,8 @@ public class MinCostService {
                 }
             }
 
+            steps.add(new HungarianStep("COVERING", copyMatrix(matrix), "Covered zeros with minimum lines (delta=" + delta + ")", null, null, coverRows, markedCols, delta));
+
             // Adjust the matrix values
             for (int i = 0; i < n; i++) {
                 for (int j = 0; j < n; j++) {
@@ -305,6 +319,7 @@ public class MinCostService {
                     if (markedCols[j]) matrix[i][j] += delta;
                 }
             }
+            steps.add(new HungarianStep("ADJUSTMENT", copyMatrix(matrix), "Adjusted matrix by delta", null, null, null, null, delta));
         }
 
         // Final result: collect assignments and total cost
@@ -320,7 +335,17 @@ public class MinCostService {
         logs.add("Optimal assignments found successfully.");
         logs.add("Final Total Cost = " + total);
 
-        return new AssignmentResult(total, pairs, logs);
+        return new AssignmentResult(total, pairs, logs, steps);
+    }
+
+    // Helper to deep copy a matrix
+    private int[][] copyMatrix(int[][] original) {
+        int n = original.length;
+        int[][] copy = new int[n][n];
+        for (int i = 0; i < n; i++) {
+            copy[i] = Arrays.copyOf(original[i], n);
+        }
+        return copy;
     }
 
     // Convert nanoseconds to milliseconds and round to 3 decimals.
@@ -416,8 +441,21 @@ public class MinCostService {
             List<AssignmentPair> hungarianAssignments,
             List<String> greedyLogs,
             List<String> hungarianLogs,
+            List<HungarianStep> hungarianSteps,
             double greedyTimeMs,
             double hungarianTimeMs
+    ) {}
+
+    // Track detailed steps of the Hungarian algorithm
+    public record HungarianStep(
+            String type,
+            int[][] matrix,
+            String description,
+            int[] rowMinVals,
+            int[] colMinVals,
+            boolean[] markedRows, // used to show lines
+            boolean[] markedCols, // used to show lines
+            Integer delta
     ) {}
 
     // History summary record
@@ -430,5 +468,5 @@ public class MinCostService {
     ) {}
 
     // Internal helper record for algorithm method returns.
-    private record AssignmentResult(int totalCost, List<AssignmentPair> assignments, List<String> logs) {}
+    private record AssignmentResult(int totalCost, List<AssignmentPair> assignments, List<String> logs, List<HungarianStep> steps) {}
 }

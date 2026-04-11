@@ -33,8 +33,8 @@ This file tracks the synchronized development progress for the Minimum Cost Assi
 *   **Chaniru:** [x] Add loading states/spinners and "Execute" trigger logic.
 
 ### Day 5 – Dynamic Step Visualization
-*   **Chaniru:** [ ] Implement structural decision tracking for "Step-by-Step" mode.
-*   **Chaniru:** [ ] Format backend output for smooth ingestion by frontend hooks.
+*   **Chaniru:** [x] Implement structural decision tracking for "Step-by-Step" mode.
+*   **Chaniru:** [x] Format backend output for smooth ingestion by frontend hooks.
 *   **Rumeth:** [ ] Implement paused step-by-step UI rendering logic.
 *   **Rumeth:** [ ] Build "Playback Toolbar" (Next Step, Prev, Play/Pause).
 *   **Rumeth:** [ ] Present localized logs explaining *why* each choice was made.
