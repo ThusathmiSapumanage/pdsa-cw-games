@@ -292,6 +292,102 @@ public class KnightsTourModel {
         }
     }
 
+    public static class HintRequest {
+        private Long sessionId;
+        private Long playerId;
+        private List<Move> moves;
+
+        public Long getSessionId() {
+            return sessionId;
+        }
+
+        public void setSessionId(Long sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public Long getPlayerId() {
+            return playerId;
+        }
+
+        public void setPlayerId(Long playerId) {
+            this.playerId = playerId;
+        }
+
+        public List<Move> getMoves() {
+            return moves;
+        }
+
+        public void setMoves(List<Move> moves) {
+            this.moves = moves;
+        }
+    }
+
+    public static class HintResponse {
+        private Long sessionId;
+        private Long playerId;
+        private Integer fromStepNo;
+        private Integer fromX;
+        private Integer fromY;
+        private List<Move> hintMoves;
+        private String message;
+
+        public Long getSessionId() {
+            return sessionId;
+        }
+
+        public void setSessionId(Long sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public Long getPlayerId() {
+            return playerId;
+        }
+
+        public void setPlayerId(Long playerId) {
+            this.playerId = playerId;
+        }
+
+        public Integer getFromStepNo() {
+            return fromStepNo;
+        }
+
+        public void setFromStepNo(Integer fromStepNo) {
+            this.fromStepNo = fromStepNo;
+        }
+
+        public Integer getFromX() {
+            return fromX;
+        }
+
+        public void setFromX(Integer fromX) {
+            this.fromX = fromX;
+        }
+
+        public Integer getFromY() {
+            return fromY;
+        }
+
+        public void setFromY(Integer fromY) {
+            this.fromY = fromY;
+        }
+
+        public List<Move> getHintMoves() {
+            return hintMoves;
+        }
+
+        public void setHintMoves(List<Move> hintMoves) {
+            this.hintMoves = hintMoves;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+    }
+
     public static class AnswerResponse {
         private Long responseId;
         private Long sessionId;
@@ -304,13 +400,13 @@ public class KnightsTourModel {
         private Boolean completeTour;
         private Boolean deadEnd;
         private Boolean warnsdorffValid;
-        private Boolean backtrackingValid; // placeholder only
+        private Boolean backtrackingValid;
         private String validationSource;
         private String reasonCode;
         private List<Move> warnsdorffCorrectMoves;
         private Integer warnsdorffMoveCount;
-        private List<Move> backtrackingCorrectMoves; // placeholder only
-        private Integer backtrackingMoveCount; // placeholder only
+        private List<Move> backtrackingCorrectMoves;
+        private Integer backtrackingMoveCount;
         private String message;
 
         public Long getResponseId() {

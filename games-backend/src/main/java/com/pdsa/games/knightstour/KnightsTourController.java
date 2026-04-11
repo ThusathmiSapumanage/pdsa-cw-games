@@ -28,6 +28,13 @@ public class KnightsTourController {
         return ResponseEntity.ok(service.submitAnswer(request));
     }
 
+    @PostMapping("/hint")
+    public ResponseEntity<KnightsTourModel.HintResponse> getHint(
+            @RequestBody KnightsTourModel.HintRequest request
+    ) {
+        return ResponseEntity.ok(service.getHint(request));
+    }
+
     @GetMapping("/{sessionId}/correct-answer")
     public ResponseEntity<KnightsTourModel.CorrectAnswerResponse> getCorrectAnswer(
             @PathVariable Long sessionId,

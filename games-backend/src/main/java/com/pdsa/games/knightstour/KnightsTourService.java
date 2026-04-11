@@ -164,7 +164,7 @@ public class KnightsTourService {
         response.setCompleteTour(structural.isComplete());
         response.setDeadEnd(structural.isDeadEnd());
         response.setWarnsdorffValid(warnsdorffValid);
-        response.setBacktrackingValid(false); // placeholder only
+        response.setBacktrackingValid(false);
         response.setValidationSource(validationSource);
         response.setReasonCode(reasonCode);
         response.setMessage(message);
@@ -172,8 +172,65 @@ public class KnightsTourService {
         if (!isCorrect) {
             response.setWarnsdorffCorrectMoves(warnsdorffCorrectMoves);
             response.setWarnsdorffMoveCount(warnsdorffCorrectMoves.size());
-            response.setBacktrackingCorrectMoves(new ArrayList<>()); // placeholder only
-            response.setBacktrackingMoveCount(0); // placeholder only
+            response.setBacktrackingCorrectMoves(new ArrayList<>());
+            response.setBacktrackingMoveCount(0);
+        }
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public KnightsTourModel.HintResponse getHint(KnightsTourModel.HintRequest request) {
+        validateHintRequest(request);
+
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
+
+        if (!repository.sessionBelongsToPlayer(request.getSessionId(), request.getPlayerId())) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
+        }
+
+        KnightsTourModel.GameConfig gameConfig = repository.findGameConfig(request.getSessionId());
+        if (gameConfig == null) {
+            throw new IllegalStateException("Knight Tour game configuration not found for this session.");
+        }
+
+        List<KnightsTourModel.Move> submittedMoves = normalizeMovesByStep(request.getMoves());
+
+        StructuralValidationResult structural = validateStructureForHint(
+                submittedMoves,
+                gameConfig.getBoardSize(),
+                gameConfig.getStartX(),
+                gameConfig.getStartY()
+        );
+
+        if (!structural.isValid()) {
+            throw new IllegalArgumentException(buildStructuralFailureMessage(structural.getReasonCode()));
+        }
+
+        KnightsTourModel.Move lastMove = submittedMoves.get(submittedMoves.size() - 1);
+        Set<String> visited = buildVisitedSet(submittedMoves);
+
+        List<KnightsTourModel.Move> hintMoves = findLegalUnvisitedNextMoves(
+                lastMove,
+                submittedMoves.size() + 1,
+                visited,
+                gameConfig.getBoardSize()
+        );
+
+        KnightsTourModel.HintResponse response = new KnightsTourModel.HintResponse();
+        response.setSessionId(request.getSessionId());
+        response.setPlayerId(request.getPlayerId());
+        response.setFromStepNo(lastMove.getStepNo());
+        response.setFromX(lastMove.getX());
+        response.setFromY(lastMove.getY());
+        response.setHintMoves(hintMoves);
+
+        if (hintMoves.isEmpty()) {
+            response.setMessage("No legal unvisited moves are available from your current square.");
+        } else {
+            response.setMessage("Possible legal next moves from your current square are returned.");
         }
 
         return response;
@@ -399,6 +456,81 @@ public class KnightsTourService {
         return StructuralValidationResult.validComplete();
     }
 
+    private StructuralValidationResult validateStructureForHint(
+            List<KnightsTourModel.Move> submittedMoves,
+            int boardSize,
+            int expectedStartX,
+            int expectedStartY
+    ) {
+        if (submittedMoves.isEmpty()) {
+            return StructuralValidationResult.invalid("EMPTY_PATH");
+        }
+
+        Set<String> visitedCells = new HashSet<>();
+
+        for (int i = 0; i < submittedMoves.size(); i++) {
+            KnightsTourModel.Move current = submittedMoves.get(i);
+
+            int expectedStepNo = i + 1;
+            if (current.getStepNo() != expectedStepNo) {
+                return StructuralValidationResult.invalid("INVALID_STEP_SEQUENCE");
+            }
+
+            if (!isWithinBoard(current.getX(), current.getY(), boardSize)) {
+                return StructuralValidationResult.invalid("OUT_OF_BOUNDS");
+            }
+
+            String cellKey = current.getX() + "_" + current.getY();
+            if (!visitedCells.add(cellKey)) {
+                return StructuralValidationResult.invalid("DUPLICATE_CELL");
+            }
+
+            if (i == 0) {
+                if (current.getX() != expectedStartX || current.getY() != expectedStartY) {
+                    return StructuralValidationResult.invalid("WRONG_START_POSITION");
+                }
+            } else {
+                KnightsTourModel.Move previous = submittedMoves.get(i - 1);
+                if (!isKnightMove(previous.getX(), previous.getY(), current.getX(), current.getY())) {
+                    return StructuralValidationResult.invalid("ILLEGAL_MOVE_SEQUENCE");
+                }
+            }
+        }
+
+        return StructuralValidationResult.validPartial();
+    }
+
+    private List<KnightsTourModel.Move> findLegalUnvisitedNextMoves(
+            KnightsTourModel.Move lastMove,
+            int nextStepNo,
+            Set<String> visitedCells,
+            int boardSize
+    ) {
+        List<KnightsTourModel.Move> hintMoves = new ArrayList<>();
+
+        for (int i = 0; i < 8; i++) {
+            int nextX = lastMove.getX() + DX[i];
+            int nextY = lastMove.getY() + DY[i];
+
+            if (isWithinBoard(nextX, nextY, boardSize)) {
+                String cellKey = nextX + "_" + nextY;
+                if (!visitedCells.contains(cellKey)) {
+                    hintMoves.add(new KnightsTourModel.Move(nextStepNo, nextX, nextY));
+                }
+            }
+        }
+
+        return hintMoves;
+    }
+
+    private Set<String> buildVisitedSet(List<KnightsTourModel.Move> moves) {
+        Set<String> visited = new HashSet<>();
+        for (KnightsTourModel.Move move : moves) {
+            visited.add(move.getX() + "_" + move.getY());
+        }
+        return visited;
+    }
+
     private boolean hasNoLegalUnvisitedMove(
             KnightsTourModel.Move lastMove,
             Set<String> visitedCells,
@@ -424,6 +556,7 @@ public class KnightsTourService {
         return (dx == 2 && dy == 1) || (dx == 1 && dy == 2);
     }
 
+    // Checks if the given coordinates are within the bounds of the board (1-based indexing).
     private boolean isWithinBoard(int x, int y, int boardSize) {
         return x >= 1 && x <= boardSize && y >= 1 && y <= boardSize;
     }
@@ -434,6 +567,7 @@ public class KnightsTourService {
         return normalized;
     }
 
+    //check if the submitted moves are exactly the same as the correct moves in terms of step number and coordinates
     private boolean areMovesExactlyEqual(
             List<KnightsTourModel.Move> correctMoves,
             List<KnightsTourModel.Move> submittedMoves
@@ -456,6 +590,7 @@ public class KnightsTourService {
         return true;
     }
 
+    // Provides user-friendly messages for different structural validation failures.
     private String buildStructuralFailureMessage(String reasonCode) {
         return switch (reasonCode) {
             case "WRONG_START_POSITION" -> "Submitted path does not start from the required starting square.";
@@ -501,6 +636,10 @@ public class KnightsTourService {
         return (System.nanoTime() - startNano) / 1_000_000.0;
     }
 
+    /*Algorithm execution results in the database with a normalized status of
+    either "SUCCESS" or "ERROR" to simplify querying and reporting,
+    even though the internal representation may have more detailed status values.
+     */
     private String normalizeStatusForDb(String status) {
         return "SUCCESS".equals(status) ? "SUCCESS" : "ERROR";
     }
@@ -565,6 +704,53 @@ public class KnightsTourService {
         }
     }
 
+    private void validateHintRequest(KnightsTourModel.HintRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null.");
+        }
+
+        if (request.getSessionId() == null || request.getSessionId() <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (request.getMoves() == null || request.getMoves().isEmpty()) {
+            throw new IllegalArgumentException("At least one move is required to request a hint.");
+        }
+
+        Set<Integer> seenSteps = new HashSet<>();
+        Set<String> seenCells = new HashSet<>();
+
+        for (KnightsTourModel.Move move : request.getMoves()) {
+            if (move == null) {
+                throw new IllegalArgumentException("Move list contains null entry.");
+            }
+
+            if (move.getStepNo() <= 0) {
+                throw new IllegalArgumentException("Each move must have a positive step number.");
+            }
+
+            if (move.getX() <= 0 || move.getY() <= 0) {
+                throw new IllegalArgumentException("Coordinates must be positive.");
+            }
+
+            if (!seenSteps.add(move.getStepNo())) {
+                throw new IllegalArgumentException("Duplicate step number found: " + move.getStepNo());
+            }
+
+            String cellKey = move.getX() + "_" + move.getY();
+            if (!seenCells.add(cellKey)) {
+                throw new IllegalArgumentException(
+                        "Duplicate board cell found in hint request: (" + move.getX() + "," + move.getY() + ")"
+                );
+            }
+        }
+    }
+
+    //not in model class because it's only used internally in the service and not exposed to the client
     private static class GeneratedRound {
         private final int startX;
         private final int startY;
@@ -592,6 +778,10 @@ public class KnightsTourService {
 
         public static StructuralValidationResult validComplete() {
             return new StructuralValidationResult(true, true, false, "VALID_STRUCTURE");
+        }
+
+        public static StructuralValidationResult validPartial() {
+            return new StructuralValidationResult(true, false, false, "VALID_PARTIAL_STRUCTURE");
         }
 
         public static StructuralValidationResult invalid(String reasonCode) {
