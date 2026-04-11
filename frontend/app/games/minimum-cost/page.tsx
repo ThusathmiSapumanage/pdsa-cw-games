@@ -242,9 +242,19 @@ export default function MinimumCostPage() {
             <button
               onClick={runGame}
               disabled={isLoading}
-              className="bg-white text-black py-4 rounded-lg font-bold uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all text-[10px] disabled:opacity-30 shadow-lg active:scale-95"
+              className="relative flex items-center justify-center bg-white text-black py-4 rounded-lg font-bold uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all text-[10px] disabled:opacity-30 shadow-lg active:scale-95 overflow-hidden group"
             >
-              {isLoading ? "Running..." : "GENERATE & RUN"}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-black group-hover:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Running Algorithms...</span>
+                </>
+              ) : (
+                "GENERATE & RUN"
+              )}
             </button>
 
             {/* NEW: Step-by-Step UI Controls */}
