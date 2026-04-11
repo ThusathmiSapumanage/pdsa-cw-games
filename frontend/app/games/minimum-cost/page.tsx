@@ -189,7 +189,7 @@ export default function MinimumCostPage() {
       const response = await fetch("http://localhost:8080/api/mincost/history");
       const data = await response.json();
       if (response.ok) setHistory(data);
-    } catch (err) {
+    } catch {
       console.log("History failed to load");
     }
   };
@@ -284,11 +284,7 @@ export default function MinimumCostPage() {
     setCurrentStep((prev) => (prev === undefined || prev === 0 ? 0 : prev - 1));
   };
 
-  // Check which algorithm actually won (Lowest total cost)
-  const optimalAlgorithm =
-    (result?.greedyTotalCost ?? Infinity) <= (result?.hungarianTotalCost ?? Infinity)
-      ? "Greedy"
-      : "Hungarian";
+  // Note: the original code had an unused 'optimalAlgorithm' variable here which was removed to fix lint errors.
 
   return (
     <AuthGate>
