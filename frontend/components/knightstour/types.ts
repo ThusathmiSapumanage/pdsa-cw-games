@@ -36,6 +36,36 @@ export type SubmitResponse = {
   outcome: "WIN" | "LOSE" | "DRAW";
   expectedMoveCount: number;
   submittedMoveCount: number;
+
+  structuralValid: boolean;
+  completeTour: boolean;
+  deadEnd: boolean;
+  warnsdorffValid: boolean;
+  backtrackingValid: boolean;
+  validationSource: string | null;
+  reasonCode: string;
+
+  warnsdorffCorrectMoves: Move[];
+  warnsdorffMoveCount: number;
+  backtrackingCorrectMoves: Move[];
+  backtrackingMoveCount: number;
+
+  message: string;
+};
+
+export type HintRequest = {
+  sessionId: number;
+  playerId: number;
+  moves: Move[];
+};
+
+export type HintResponse = {
+  sessionId: number;
+  playerId: number;
+  fromStepNo: number;
+  fromX: number;
+  fromY: number;
+  hintMoves: Move[];
   message: string;
 };
 

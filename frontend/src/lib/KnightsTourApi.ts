@@ -3,6 +3,8 @@ import {
   StartResponse,
   SubmitRequest,
   SubmitResponse,
+  HintRequest,
+  HintResponse,
   CorrectAnswerResponse,
   ApiError,
 } from "../../components/knightstour/types";
@@ -47,6 +49,20 @@ export async function submitKnightTourAnswer(
   });
 
   return handleResponse<SubmitResponse>(response);
+}
+
+export async function getKnightTourHint(
+  payload: HintRequest
+): Promise<HintResponse> {
+  const response = await fetch(`${API_BASE_URL}/knights-tour/hint`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<HintResponse>(response);
 }
 
 export async function getKnightTourCorrectAnswer(

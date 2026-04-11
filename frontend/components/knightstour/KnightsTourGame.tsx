@@ -1,15 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import KnightBoard from "./KnightBoard";
+import { HintResponse, Move, StartResponse, SubmitResponse } from "./types";
 import {
-  CorrectAnswerResponse,
-  Move,
-  StartResponse,
-  SubmitResponse,
-} from "./types";
-import {
-  getKnightTourCorrectAnswer,
+  getKnightTourHint,
   startKnightTourRound,
   submitKnightTourAnswer,
 } from "../../src/lib/KnightsTourApi";
@@ -27,27 +22,45 @@ export default function KnightTourGame() {
 
   const [roundData, setRoundData] = useState<StartResponse | null>(null);
   const [submitResult, setSubmitResult] = useState<SubmitResponse | null>(null);
-  const [correctAnswer, setCorrectAnswer] =
-    useState<CorrectAnswerResponse | null>(null);
+  const [hintResult, setHintResult] = useState<HintResponse | null>(null);
 
   const [selectedMoves, setSelectedMoves] = useState<Move[]>([]);
 
   const [loadingStart, setLoadingStart] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [loadingHint, setLoadingHint] = useState(false);
 
   const [error, setError] = useState("");
   const [moveError, setMoveError] = useState("");
+  const [hintCooldown, setHintCooldown] = useState(0);
 
   const maxMoves = useMemo(() => {
     return boardSize * boardSize;
   }, [boardSize]);
+
+  const shownCorrectMoves =
+    submitResult && !submitResult.correct
+      ? submitResult.warnsdorffCorrectMoves || []
+      : [];
+
+  const shownHintMoves = hintResult?.hintMoves || [];
+
+  useEffect(() => {
+    if (hintCooldown <= 0) return;
+
+    const timer = setTimeout(() => {
+      setHintCooldown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [hintCooldown]);
 
   const handleStartRound = async () => {
     try {
       setError("");
       setMoveError("");
       setSubmitResult(null);
-      setCorrectAnswer(null);
+      setHintResult(null);
       setSelectedMoves([]);
 
       const parsedPlayerId = Number(playerId);
@@ -73,25 +86,31 @@ export default function KnightTourGame() {
   };
 
   const handleCellClick = (x: number, y: number) => {
-    if (!roundData || correctAnswer) return;
+    if (!roundData || submitResult) return;
 
     setError("");
     setMoveError("");
 
+    const clickedHint = shownHintMoves.find((move) => move.x === x && move.y === y);
+    if (clickedHint) {
+      setHintResult(null);
+    }
+
     const existing = selectedMoves.find((move) => move.x === x && move.y === y);
 
     if (existing) {
-    const lastMove = selectedMoves[selectedMoves.length - 1];
+      const lastMove = selectedMoves[selectedMoves.length - 1];
 
-    if (lastMove.x === x && lastMove.y === y) {
+      if (lastMove.x === x && lastMove.y === y) {
         setMoveError("");
+        setHintResult(null);
         setSelectedMoves((prev) => prev.slice(0, -1));
-    } else {
+      } else {
         setMoveError(
-        "You can only remove the most recent move. Use Undo Last to go back step by step."
+          "You can only remove the most recent move. Use Undo Last to go back step by step."
         );
-    }
-    return;
+      }
+      return;
     }
 
     if (selectedMoves.length >= maxMoves) {
@@ -107,6 +126,7 @@ export default function KnightTourGame() {
         return;
       }
 
+      setHintResult(null);
       setSelectedMoves([
         {
           stepNo: 1,
@@ -127,6 +147,8 @@ export default function KnightTourGame() {
       return;
     }
 
+    setHintResult(null);
+
     setSelectedMoves((prev) => [
       ...prev,
       {
@@ -138,17 +160,53 @@ export default function KnightTourGame() {
   };
 
   const handleUndoLast = () => {
-    if (correctAnswer) return;
+    if (submitResult) return;
     setMoveError("");
+    setHintResult(null);
     setSelectedMoves((prev) => prev.slice(0, -1));
   };
 
   const handleClearAll = () => {
-    if (correctAnswer) return;
+    if (submitResult) return;
     setMoveError("");
+    setHintResult(null);
     setSelectedMoves([]);
-    setSubmitResult(null);
     setError("");
+  };
+
+  const handleHint = async () => {
+    try {
+      if (!roundData) {
+        setError("Start a round first.");
+        return;
+      }
+
+      if (selectedMoves.length === 0) {
+        setError("Make at least one move before requesting a hint.");
+        return;
+      }
+
+      if (hintCooldown > 0) {
+        return;
+      }
+
+      setError("");
+      setMoveError("");
+      setLoadingHint(true);
+
+      const response = await getKnightTourHint({
+        sessionId: roundData.sessionId,
+        playerId: roundData.playerId,
+        moves: selectedMoves,
+      });
+
+      setHintResult(response);
+      setHintCooldown(3);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to get hint.");
+    } finally {
+      setLoadingHint(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -174,17 +232,61 @@ export default function KnightTourGame() {
       });
 
       setSubmitResult(submitResponse);
-
-      const correctResponse = await getKnightTourCorrectAnswer(
-        roundData.sessionId,
-        roundData.playerId
-      );
-
-      setCorrectAnswer(correctResponse);
+      setHintResult(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit answer.");
     } finally {
       setLoadingSubmit(false);
+    }
+  };
+
+  const getReasonLabel = (reasonCode?: string) => {
+    switch (reasonCode) {
+      case "WRONG_START_POSITION":
+        return "Wrong start position";
+      case "OUT_OF_BOUNDS":
+        return "Out of bounds";
+      case "DUPLICATE_CELL":
+        return "Duplicate cell";
+      case "INVALID_STEP_SEQUENCE":
+        return "Invalid step sequence";
+      case "ILLEGAL_MOVE_SEQUENCE":
+        return "Illegal move sequence";
+      case "DEAD_END_BEFORE_COMPLETION":
+        return "Dead end before completion";
+      case "INCOMPLETE_TOUR":
+        return "Incomplete tour";
+      case "FAILED_WARNSDORFF_VALIDATION":
+        return "Failed Warnsdorff validation";
+      case "VALID_TOUR":
+        return "Valid tour";
+      default:
+        return reasonCode || "-";
+    }
+  };
+
+  const getStructuralMeaning = (result: SubmitResponse) => {
+    if (result.structuralValid) {
+      return "Your path followed the basic Knight’s Tour rules correctly.";
+    }
+
+    switch (result.reasonCode) {
+      case "WRONG_START_POSITION":
+        return "Your answer is not structurally valid because the first move did not start from the required starting square.";
+      case "OUT_OF_BOUNDS":
+        return "Your answer is not structurally valid because at least one move went outside the board.";
+      case "DUPLICATE_CELL":
+        return "Your answer is not structurally valid because the same square was visited more than once.";
+      case "INVALID_STEP_SEQUENCE":
+        return "Your answer is not structurally valid because the move numbering or step order is broken.";
+      case "ILLEGAL_MOVE_SEQUENCE":
+        return "Your answer is not structurally valid because at least one move is not a legal knight move.";
+      case "DEAD_END_BEFORE_COMPLETION":
+        return "Your answer is not structurally valid as a full solution because you got stuck before visiting every square.";
+      case "INCOMPLETE_TOUR":
+        return "Your answer is not structurally valid as a full tour because it ended before covering the whole board.";
+      default:
+        return "Your answer is not structurally valid because it failed the basic Knight’s Tour rule checks.";
     }
   };
 
@@ -200,6 +302,40 @@ export default function KnightTourGame() {
 
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-6">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur">
+              <h2 className="mb-4 text-xl font-semibold">How to Play</h2>
+
+              <div className="space-y-3 text-sm text-slate-300">
+                <p>
+                  The goal is to move the knight so that it visits every square
+                  on the board exactly once.
+                </p>
+
+                <div>
+                  <p className="font-medium text-white">Rules</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>Your first move must be the given starting square.</li>
+                    <li>
+                      Each next move must be a legal knight move: 2 squares in
+                      one direction and 1 square in the other.
+                    </li>
+                    <li>You cannot use the same square twice.</li>
+                    <li>
+                      To complete the tour, you must cover all squares on the board.
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="font-medium text-white">Tip</p>
+                  <p className="mt-1 text-slate-300">
+                    If you click the last selected square again, it removes that move.
+                    Use Undo Last to go back one step at a time.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur">
               <h2 className="mb-4 text-xl font-semibold">Start Game</h2>
 
@@ -290,7 +426,7 @@ export default function KnightTourGame() {
               <div className="mb-4 flex flex-wrap gap-3">
                 <button
                   onClick={handleUndoLast}
-                  disabled={selectedMoves.length === 0 || !!correctAnswer}
+                  disabled={selectedMoves.length === 0 || !!submitResult}
                   className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-medium transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Undo Last
@@ -298,10 +434,28 @@ export default function KnightTourGame() {
 
                 <button
                   onClick={handleClearAll}
-                  disabled={selectedMoves.length === 0 || !!correctAnswer}
+                  disabled={selectedMoves.length === 0 || !!submitResult}
                   className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clear All
+                </button>
+
+                <button
+                  onClick={handleHint}
+                  disabled={
+                    !roundData ||
+                    selectedMoves.length === 0 ||
+                    !!submitResult ||
+                    loadingHint ||
+                    hintCooldown > 0
+                  }
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loadingHint
+                    ? "Getting Hint..."
+                    : hintCooldown > 0
+                    ? `Hint Cooldown (${hintCooldown}s)`
+                    : "Get Hint"}
                 </button>
 
                 <button
@@ -310,7 +464,7 @@ export default function KnightTourGame() {
                     !roundData ||
                     selectedMoves.length === 0 ||
                     loadingSubmit ||
-                    !!correctAnswer
+                    !!submitResult
                   }
                   className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -337,6 +491,12 @@ export default function KnightTourGame() {
                   </div>
                 )}
               </div>
+
+              {hintResult && !submitResult && (
+                <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  {hintResult.message}
+                </div>
+              )}
             </div>
 
             {submitResult && (
@@ -353,18 +513,56 @@ export default function KnightTourGame() {
                     <span className="text-slate-300">Outcome</span>
                     <span className="font-bold">{submitResult.outcome}</span>
                   </div>
+
                   <div className="flex justify-between gap-4">
                     <span className="text-slate-300">Correct</span>
                     <span>{submitResult.correct ? "Yes" : "No"}</span>
                   </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Reason</span>
+                    <span>{getReasonLabel(submitResult.reasonCode)}</span>
+                  </div>
+
                   <div className="flex justify-between gap-4">
                     <span className="text-slate-300">Expected Moves</span>
                     <span>{submitResult.expectedMoveCount}</span>
                   </div>
+
                   <div className="flex justify-between gap-4">
                     <span className="text-slate-300">Submitted Moves</span>
                     <span>{submitResult.submittedMoveCount}</span>
                   </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Structural Valid</span>
+                    <span>{submitResult.structuralValid ? "Yes" : "No"}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Complete Tour</span>
+                    <span>{submitResult.completeTour ? "Yes" : "No"}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Dead End</span>
+                    <span>{submitResult.deadEnd ? "Yes" : "No"}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Warnsdorff Valid</span>
+                    <span>{submitResult.warnsdorffValid ? "Yes" : "No"}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-300">Validation Source</span>
+                    <span>{submitResult.validationSource || "-"}</span>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3 text-slate-200">
+                    {getStructuralMeaning(submitResult)}
+                  </div>
+
                   <p className="pt-2 text-slate-100">{submitResult.message}</p>
                 </div>
               </div>
@@ -392,27 +590,36 @@ export default function KnightTourGame() {
               </div>
             </div>
 
-            {correctAnswer && (
+            {submitResult && !submitResult.correct && (
               <div className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-                Correct answer is now shown in green.
+                Correct Warnsdorff answer is now shown in green.
               </div>
             )}
 
-            <div className={`${boardSize === 16 ? "max-w-[900px]" : "max-w-[700px]"}`}>
+            {!submitResult && shownHintMoves.length > 0 && (
+              <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                Hint squares are highlighted in yellow. Click one to use it.
+              </div>
+            )}
+
+            <div className={boardSize === 16 ? "max-w-[900px]" : "max-w-[700px]"}>
               <KnightBoard
                 boardSize={roundData?.boardSize || boardSize}
                 selectedMoves={selectedMoves}
-                correctMoves={correctAnswer?.moves || []}
+                correctMoves={shownCorrectMoves}
+                hintMoves={shownHintMoves}
                 onCellClick={handleCellClick}
-                disabled={!roundData || !!correctAnswer}
+                disabled={!roundData || !!submitResult}
                 startX={roundData?.startX}
                 startY={roundData?.startY}
               />
             </div>
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-300">
-              {correctAnswer
-                ? "Purple = your answer, Green = correct answer."
+              {submitResult && !submitResult.correct
+                ? "Purple = your answer, Green = correct Warnsdorff answer."
+                : shownHintMoves.length > 0
+                ? "Purple = your moves, Yellow = hint squares."
                 : "Your first click must be the starting square, and every next click must be a legal knight move."}
             </div>
           </div>

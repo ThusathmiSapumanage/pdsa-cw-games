@@ -6,6 +6,7 @@ type KnightBoardProps = {
   boardSize: number;
   selectedMoves: Move[];
   correctMoves?: Move[];
+  hintMoves?: Move[];
   onCellClick: (x: number, y: number) => void;
   disabled?: boolean;
   startX?: number;
@@ -16,6 +17,7 @@ export default function KnightBoard({
   boardSize,
   selectedMoves,
   correctMoves = [],
+  hintMoves = [],
   onCellClick,
   disabled = false,
   startX,
@@ -27,6 +29,10 @@ export default function KnightBoard({
 
   const getCorrectMoveForCell = (x: number, y: number) => {
     return correctMoves.find((move) => move.x === x && move.y === y);
+  };
+
+  const getHintMoveForCell = (x: number, y: number) => {
+    return hintMoves.find((move) => move.x === x && move.y === y);
   };
 
   return (
@@ -43,12 +49,16 @@ export default function KnightBoard({
         const isDark = (row + col) % 2 === 0;
         const playerMove = getPlayerMoveForCell(col, row);
         const correctMove = getCorrectMoveForCell(col, row);
+        const hintMove = getHintMoveForCell(col, row);
         const isStart = startX === col && startY === row;
 
-        let cellClass =
-          isDark
-            ? "border-slate-700 bg-slate-700 text-slate-200"
-            : "border-slate-500 bg-slate-200 text-slate-900";
+        let cellClass = isDark
+          ? "border-slate-700 bg-slate-700 text-slate-200"
+          : "border-slate-500 bg-slate-200 text-slate-900";
+
+        if (hintMove) {
+          cellClass = "border-amber-300 bg-amber-500 text-slate-950";
+        }
 
         if (playerMove) {
           cellClass = "border-purple-300 bg-purple-600 text-white";
@@ -73,20 +83,22 @@ export default function KnightBoard({
               {col},{row}
             </span>
 
-            {isStart && !playerMove && !correctMove && (
+            {isStart && !playerMove && !correctMove && !hintMove && (
               <span className="text-[9px] font-bold text-emerald-600">
                 START
               </span>
             )}
 
             {correctMove ? (
-              <span className={`${boardSize === 16 ? "text-[10px]" : "text-sm"}`}>
+              <span className={boardSize === 16 ? "text-[10px]" : "text-sm"}>
                 {correctMove.stepNo}
               </span>
             ) : playerMove ? (
-              <span className={`${boardSize === 16 ? "text-[10px]" : "text-sm"}`}>
+              <span className={boardSize === 16 ? "text-[10px]" : "text-sm"}>
                 {playerMove.stepNo}
               </span>
+            ) : hintMove ? (
+              <span className="text-[9px] font-bold">HINT</span>
             ) : null}
           </button>
         );
