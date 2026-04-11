@@ -37,6 +37,15 @@ type ApiResponse = {
   hungarianTimeMs: number;
 };
 
+// Shape of a past game record
+type HistoryItem = {
+  date: string;
+  n: number;
+  cost: number;
+  greedyTime: number;
+  hungarianTime: number;
+};
+
 /* 
  * MatrixTable Component:
  * This paints the N x N grid on our screen.
@@ -137,6 +146,7 @@ export default function MinimumCostPage() {
   // App states: loading spinner status and backend results
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   
   // Visualization state: which step we are looking at
   const [currentStep, setCurrentStep] = useState<number | undefined>(undefined);
@@ -155,9 +165,22 @@ export default function MinimumCostPage() {
   });
 
   // Effect: whenever we get new results, reset the visualizer back to full view
+  // Also fetch history on load
   useEffect(() => {
     if (result) setCurrentStep(undefined);
+    fetchHistory();
   }, [result]);
+
+  // Fetches the last 10 games from the database
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/mincost/history");
+      const data = await response.json();
+      if (response.ok) setHistory(data);
+    } catch (err) {
+      console.log("History failed to load");
+    }
+  };
 
   // Main Logic: Sends input to backend and gets the result
   const runGame = async () => {
@@ -415,6 +438,26 @@ export default function MinimumCostPage() {
                 <p className="text-xs font-mono text-white">{result?.hungarianTimeMs ?? "--"}ms</p>
               </div>
             </div>
+
+            {/* History Table (New) */}
+            {history.length > 0 && (
+              <div className="mt-8 pt-8 border-t border-white/5">
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-4">Recent System Runs</p>
+                <div className="space-y-2 max-h-40 overflow-auto pr-2 custom-scrollbar">
+                  {history.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-2 rounded bg-white/[0.02] border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] text-white/20 font-mono italic">
+                          {new Date(item.date).toLocaleDateString()}
+                        </span>
+                        <span className="text-[10px] text-white/60">N={item.n}</span>
+                      </div>
+                      <span className="text-xs font-bold text-green-400/70">{item.cost}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         }
       />

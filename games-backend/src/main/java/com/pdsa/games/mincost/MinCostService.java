@@ -60,13 +60,35 @@ public class MinCostService {
                 greedyResult.assignments(),
                 hungarianResult.assignments(),
                 greedyResult.logs(),
-                List.of(
-                        "Hungarian done: best cost = " + hungarianResult.totalCost(),
-                        "Greedy done: cost = " + greedyResult.totalCost()
-                ),
+                hungarianResult.logs(), // This now has detailed notes
                 greedyMs,
                 hungarianMs
         );
+    }
+
+    // Fetches the last 10 games played for MinCost
+    public List<MinCostHistoryItem> getHistory() {
+        String sql = "SELECT gs.Created_At, mcg.N_Value, mcg.Minimum_Total_Cost, " +
+                     "ae_g.Execution_Time_MS as Greedy_Time, ae_h.Execution_Time_MS as Hungarian_Time " +
+                     "FROM Game_Session gs " +
+                     "JOIN Minimum_Cost_Game mcg ON gs.Session_Id = mcg.Session_Id " +
+                     "LEFT JOIN Algorithm_Execute ae_g ON gs.Session_Id = ae_g.Session_Id AND ae_g.Algorithm_Id = " +
+                     "(SELECT Algorithm_Id FROM Algorithm WHERE Algorithm_Name = 'Minimum Cost - Greedy') " +
+                     "LEFT JOIN Algorithm_Execute ae_h ON gs.Session_Id = ae_h.Session_Id AND ae_h.Algorithm_Id = " +
+                     "(SELECT Algorithm_Id FROM Algorithm WHERE Algorithm_Name = 'Minimum Cost - Hungarian') " +
+                     "ORDER BY gs.Created_At DESC LIMIT 10";
+
+        try {
+            return jdbcTemplate.query(sql, (rs, rowNum) -> new MinCostHistoryItem(
+                    rs.getString("Created_At"),
+                    rs.getInt("N_Value"),
+                    rs.getInt("Minimum_Total_Cost"),
+                    rs.getDouble("Greedy_Time"),
+                    rs.getDouble("Hungarian_Time")
+            ));
+        } catch (Exception e) {
+            return List.of(); // Return empty if DB error
+        }
     }
 
     // if user didnt give N, we pick random between 50 and 100
@@ -166,6 +188,9 @@ public class MinCostService {
             matrix[i] = Arrays.copyOf(originalMatrix[i], n);
         }
 
+        List<String> logs = new ArrayList<>();
+        logs.add("Start Hungarian: Goal is to find the perfect assignment for the lowest total.");
+
         // STEP 1: Row Reduction
         // subtract the smallest value in each row from all others in that row
         for (int i = 0; i < n; i++) {
@@ -176,7 +201,9 @@ public class MinCostService {
             for (int j = 0; j < n; j++) {
                 matrix[i][j] -= rowMin;
             }
+            if (n <= 10) logs.add("Row " + (i + 1) + ": subtracted min value " + rowMin);
         }
+        if (n > 10) logs.add("Completed Row Reduction phase for all " + n + " rows.");
 
         // STEP 2: Column Reduction
         // subtract the smallest value in each column from all others in that column
@@ -188,7 +215,11 @@ public class MinCostService {
             for (int i = 0; i < n; i++) {
                 matrix[i][j] -= colMin;
             }
+            if (n <= 10) logs.add("Column " + (j + 1) + ": subtracted min value " + colMin);
         }
+        if (n > 10) logs.add("Completed Column Reduction phase for all " + n + " columns.");
+        
+        logs.add("Starting assignment search on reduced zeros...");
 
         // STEP 3 & 4: Covering zeros and adjusting matrix
         // we keep doing this until we can assign N zeros
@@ -286,7 +317,10 @@ public class MinCostService {
             pairs.add(new AssignmentPair(i, j, cost));
         }
 
-        return new AssignmentResult(total, pairs, List.of("Optimal Hungarian Result Calculated"));
+        logs.add("Optimal assignments found successfully.");
+        logs.add("Final Total Cost = " + total);
+
+        return new AssignmentResult(total, pairs, logs);
     }
 
     // Convert nanoseconds to milliseconds and round to 3 decimals.
@@ -384,6 +418,15 @@ public class MinCostService {
             List<String> hungarianLogs,
             double greedyTimeMs,
             double hungarianTimeMs
+    ) {}
+
+    // History summary record
+    public record MinCostHistoryItem(
+            String date,
+            int n,
+            int cost,
+            double greedyTime,
+            double hungarianTime
     ) {}
 
     // Internal helper record for algorithm method returns.

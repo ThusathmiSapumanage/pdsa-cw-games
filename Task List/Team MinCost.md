@@ -15,22 +15,22 @@ This file tracks the synchronized development progress for the Minimum Cost Assi
 *   **Rumeth:** [x] Implement visual Matrix Grid component.
 
 ### Day 2 – Greedy Strategy & Highlighting
-*   **Rumeth:** [ ] Implement Greedy algorithm with row/column blocking logic.
-*   **Rumeth:** [ ] Store sequential assignments and total costs.
+*   **Rumeth:** [x] Implement Greedy algorithm with row/column blocking logic.
+*   **Rumeth:** [x] Store sequential assignments and total costs.
 *   **Chaniru:** [x] Add visual cell highlighting for assigned tasks.
 *   **Chaniru:** [x] Display dimmed overlays for blocked rows/columns.
 *   **Chaniru:** [x] Implement interactive log panel to track greedy decisions.
 
 ### Day 3 – Optimal Hungarian & Metrics
 *   **Chaniru:** [x] Implement Hungarian Algorithm ($O(N^3)$) with matrix reduction logic.
-*   **Rumeth:** [ ] Create responsive results panel for optimal totals.
-*   **Rumeth:** [ ] Integrate side-by-side execution timer displays.
+*   **Rumeth:** [x] Create responsive results panel for optimal totals.
+*   **Rumeth:** [x] Integrate side-by-side execution timer displays.
 
 ### Day 4 – Live Integration
-*   **Rumeth:** [ ] Build API orchestrator (`/api/mincost/start`) returning both algorithms.
-*   **Rumeth:** [ ] Synchronously map execution timings to JSON response.
-*   **Chaniru:** [ ] Connect `page.tsx` to Spring Boot using Fetch/Axios.
-*   **Chaniru:** [ ] Add loading states/spinners and "Execute" trigger logic.
+*   **Rumeth:** [x] Build API orchestrator (`/api/mincost/start`) returning both algorithms.
+*   **Rumeth:** [x] Synchronously map execution timings to JSON response.
+*   **Chaniru:** [x] Connect `page.tsx` to Spring Boot using Fetch/Axios.
+*   **Chaniru:** [x] Add loading states/spinners and "Execute" trigger logic.
 
 ### Day 5 – Dynamic Step Visualization
 *   **Chaniru:** [ ] Implement structural decision tracking for "Step-by-Step" mode.
