@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
+import AuthGate from "../../../components/auth/AuthGate";
 import AlgoInput from "../../../components/forms/AlgoInput";
 import AlgoNotify, { NotifyType } from "../../../components/forms/AlgoNotify";
 
@@ -67,7 +68,8 @@ function MatrixTable({
   return (
     <div className="w-full">
       {/* Title with some spacing */}
-      <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 mb-3">{title}</h4>
+      <AuthGate>
+        <GameLayoutShell
       
       {/* Scrollable container for large matrices */}
       <div className="overflow-auto max-h-[420px] border border-white/5 rounded-lg bg-[#0A0A0A]">
@@ -236,6 +238,7 @@ export default function MinimumCostPage() {
                   >
                     PREV
                   </button>
+      </AuthGate>
                   <button 
                     onClick={nextStepGreedy}
                     className="flex-1 bg-blue-600 text-white p-3 rounded text-[10px] font-bold transition-all shadow-lg active:scale-95"
