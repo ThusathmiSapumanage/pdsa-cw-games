@@ -30,7 +30,8 @@ public class PlayerService {
 
 	public PlayerModel savePlayer(PlayerModel player) {
 		if (player.getPlayerId() != null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerId must not be provided when creating a player");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"Invalid request: player id is generated automatically.");
 		}
 
 		validatePlayerName(player.getPlayerName(), false);
@@ -52,11 +53,11 @@ public class PlayerService {
 
 	public Optional<PlayerModel> loginPlayer(String playerEmail, String playerPassword) {
 		if (playerEmail == null || playerEmail.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerEmail is required");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please enter your email address.");
 		}
 
 		if (playerPassword == null || playerPassword.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerPassword is required");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please enter your password.");
 		}
 
 		return playerRepository.findByPlayerEmail(playerEmail)
@@ -65,7 +66,8 @@ public class PlayerService {
 
 	public Optional<PlayerModel> updatePlayer(Integer playerId, PlayerModel player) {
 		if (player.getPlayerId() != null && !playerId.equals(player.getPlayerId())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerId in path and body must match");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"Invalid request: path id and payload id do not match.");
 		}
 
 		validatePlayerName(player.getPlayerName(), false);
@@ -83,7 +85,8 @@ public class PlayerService {
 
 	public Optional<PlayerModel> patchPlayer(Integer playerId, PlayerModel player) {
 		if (player.getPlayerId() != null && !playerId.equals(player.getPlayerId())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerId in path and body must match");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"Invalid request: path id and payload id do not match.");
 		}
 
 		validatePlayerName(player.getPlayerName(), true);
@@ -110,16 +113,16 @@ public class PlayerService {
 			if (allowNull) {
 				return;
 			}
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerName is required");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please enter your name.");
 		}
 
 		if (playerName.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerName must not be blank");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name cannot be empty.");
 		}
 
 		if (playerName.length() > PLAYER_NAME_MAX_LENGTH) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"playerName must be at most " + PLAYER_NAME_MAX_LENGTH + " characters");
+					"Name must be at most " + PLAYER_NAME_MAX_LENGTH + " characters.");
 		}
 	}
 
@@ -128,25 +131,26 @@ public class PlayerService {
 			if (allowNull) {
 				return;
 			}
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerEmail is required");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please enter your email address.");
 		}
 
 		if (playerEmail.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerEmail must not be blank");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email address cannot be empty.");
 		}
 
 		if (playerEmail.length() < PLAYER_EMAIL_MIN_LENGTH) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"playerEmail must be at least " + PLAYER_EMAIL_MIN_LENGTH + " characters");
+					"Email must be at least " + PLAYER_EMAIL_MIN_LENGTH + " characters.");
 		}
 
 		if (playerEmail.length() > PLAYER_EMAIL_MAX_LENGTH) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"playerEmail must be at most " + PLAYER_EMAIL_MAX_LENGTH + " characters");
+					"Email must be at most " + PLAYER_EMAIL_MAX_LENGTH + " characters.");
 		}
 
 		if (!PLAYER_EMAIL_REGEX.matcher(playerEmail).matches()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerEmail format is invalid");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"Please enter a valid email address (example: name@example.com).");
 		}
 	}
 
@@ -155,21 +159,21 @@ public class PlayerService {
 			if (allowNull) {
 				return;
 			}
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerPassword is required");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please enter your password.");
 		}
 
 		if (playerPassword.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "playerPassword must not be blank");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password cannot be empty.");
 		}
 
 		if (playerPassword.length() < PLAYER_PASSWORD_MIN_LENGTH) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"playerPassword must be at least " + PLAYER_PASSWORD_MIN_LENGTH + " characters");
+					"Password must be at least " + PLAYER_PASSWORD_MIN_LENGTH + " characters.");
 		}
 
 		if (playerPassword.length() > PLAYER_PASSWORD_MAX_LENGTH) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"playerPassword must be at most " + PLAYER_PASSWORD_MAX_LENGTH + " characters");
+					"Password must be at most " + PLAYER_PASSWORD_MAX_LENGTH + " characters.");
 		}
 	}
 

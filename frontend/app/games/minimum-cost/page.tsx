@@ -68,9 +68,6 @@ function MatrixTable({
   return (
     <div className="w-full">
       {/* Title with some spacing */}
-      <AuthGate>
-        <GameLayoutShell
-      
       {/* Scrollable container for large matrices */}
       <div className="overflow-auto max-h-[420px] border border-white/5 rounded-lg bg-[#0A0A0A]">
         <table className="w-full text-xs border-collapse">
@@ -207,7 +204,7 @@ export default function MinimumCostPage() {
       : "Hungarian";
 
   return (
-    <>
+    <AuthGate>
       <GameLayoutShell
         gameId="02" 
         title="MinCost Assignment"
@@ -238,7 +235,6 @@ export default function MinimumCostPage() {
                   >
                     PREV
                   </button>
-      </AuthGate>
                   <button 
                     onClick={nextStepGreedy}
                     className="flex-1 bg-blue-600 text-white p-3 rounded text-[10px] font-bold transition-all shadow-lg active:scale-95"
@@ -387,6 +383,6 @@ export default function MinimumCostPage() {
         message={notify.message}
         onClose={() => setNotify((prev) => ({ ...prev, show: false }))}
       />
-    </>
+    </AuthGate>
   );
 }
