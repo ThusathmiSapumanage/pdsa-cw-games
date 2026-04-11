@@ -144,45 +144,68 @@ export default function MinimumCostPage() {
     if (result) setCurrentStep(undefined);
   }, [result]);
 
-  // Main function to call backend and get matrix + results.
+  // This is the main function to trigger our game logic
   const runGame = async () => {
+    // Basic numbers conversion
     const nValue = Number(n);
     const minValue = Number(minCost);
     const maxValue = Number(maxCost);
 
-    // Basic range checks (N between 5 and 100).
+    // Initial validation check before we call backend
     if (!Number.isInteger(nValue) || nValue < 5 || nValue > 100) {
-      setNotify({ show: true, type: "error", title: "Invalid N", message: "N must be between 5 and 100." });
-      return;
-    }
-    if (minValue < 1 || maxValue < minValue) {
-      setNotify({ show: true, type: "error", title: "Bad Range", message: "Min must be > 0 and <= Max." });
+      setNotify({ 
+        show: true, 
+        type: "error", 
+        title: "Input Error", 
+        message: "Size (N) must be a whole number between 5 and 100!" 
+      });
       return;
     }
 
+    // Set loading to true so user knows something is happening
     setIsLoading(true);
+    
     try {
-      // Connect to our Spring Boot API.
+      // Connect to our Spring Boot backend using a POST request
       const response = await fetch("http://localhost:8080/api/mincost/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ n: nValue, minCost: minValue, maxCost: maxValue }),
+        headers: { 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          n: nValue, 
+          minCost: minValue, 
+          maxCost: maxValue 
+        }),
       });
       
+      // Get the JSON data from our response
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Backend failed");
+      
+      // If the backend sent an error, we throw it to catch block
+      if (!response.ok) {
+        throw new Error(data.error || "Backend server failed to process request");
+      }
 
+      // If all good, we save the result and show a success popup
       setResult(data);
-      setNotify({ show: true, type: "success", title: "Success", message: "Matrix generated and algorithms ran!" });
+      setNotify({ 
+        show: true, 
+        type: "success", 
+        title: "Game Started", 
+        message: "Matrix generated and strategies executed successfully!" 
+      });
+
     } catch (error) {
-      // Catch network or server errors.
+      // If network is down or server crashed, we show this error
       setNotify({
         show: true,
         type: "error",
-        title: "Connection Error",
-        message: error instanceof Error ? error.message : "Backend is offline.",
+        title: "System Error",
+        message: error instanceof Error ? error.message : "Cannot reach the backend server.",
       });
     } finally {
+      // Always stop loading at the end
       setIsLoading(false);
     }
   };
