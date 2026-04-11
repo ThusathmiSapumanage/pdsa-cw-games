@@ -6,7 +6,7 @@ import { useAuth } from "../../../components/auth/AuthProvider";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
-const GAME_ID = 3;
+const GAME_NAME = "Traffic Simulation";
 
 const NODE_POSITIONS: Record<string, { x: number; y: number; kind?: string }> = {
   A: { x: 70, y: 220, kind: "source" },
@@ -75,6 +75,8 @@ export default function TrafficSimulationPage() {
       const email = decodeEmail(token);
       if (!email) throw new Error("Invalid login token.");
 
+      const gameId = await resolveTrafficGameId(token);
+
       const playersRes = await fetch(`${API_BASE_URL}/api/players`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -88,7 +90,7 @@ export default function TrafficSimulationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ gameId: GAME_ID, playerId: currentPlayer.playerId }),
+        body: JSON.stringify({ gameId, playerId: currentPlayer.playerId }),
       });
 
       const session = await readJson(sessionRes, "Unable to create game session");
@@ -98,6 +100,37 @@ export default function TrafficSimulationPage() {
       setError(e.message);
       setStatus("Session initialization failed.");
     }
+  }
+
+  async function resolveTrafficGameId(token: string) {
+    const gamesRes = await fetch(`${API_BASE_URL}/api/games`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const games = await readJson(gamesRes, "Unable to load games");
+
+    const existingGame = Array.isArray(games)
+      ? games.find((game: any) => game?.gameName === GAME_NAME)
+      : null;
+
+    if (existingGame?.gameId) {
+      return existingGame.gameId as number;
+    }
+
+    const createRes = await fetch(`${API_BASE_URL}/api/games`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ gameName: GAME_NAME }),
+    });
+    const createdGame = await readJson(createRes, "Unable to register traffic game");
+
+    if (!createdGame?.gameId) {
+      throw new Error("Traffic game setup failed.");
+    }
+
+    return createdGame.gameId as number;
   }
 
   const roadMap = useMemo(() => roads.reduce((acc: any, road: any) => {

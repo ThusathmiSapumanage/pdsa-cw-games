@@ -30,13 +30,13 @@ import com.pdsa.games.common.gameSession.GameSessionModel;
 import com.pdsa.games.common.gameSession.GameSessionRepository;
 import com.pdsa.games.common.player.PlayerModel;
 import com.pdsa.games.common.player.PlayerRepository;
+import com.pdsa.games.common.response.ResponseModel;
+import com.pdsa.games.common.response.ResponseRepository;
 import com.pdsa.games.traffic.model.Road;
 import com.pdsa.games.traffic.model.RoadId;
 import com.pdsa.games.traffic.model.TrafficSimGame;
 import com.pdsa.games.traffic.repository.RoadRepository;
 import com.pdsa.games.traffic.repository.TrafficSimGameRepository;
-import com.pdsa.games.common.response.ResponseModel;
-import com.pdsa.games.common.response.ResponseRepository;
 
 @Service
 public class TrafficService {
