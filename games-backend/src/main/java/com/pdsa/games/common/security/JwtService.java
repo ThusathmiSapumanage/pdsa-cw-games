@@ -20,10 +20,11 @@ public class JwtService {
     private final long expirationMs;
 
     public JwtService(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration-ms}") long expirationMs) {
+            @Value("${jwt.secret:}") String secret,
+            @Value("${jwt.expiration-ms:}") String expirationMsValue) {
+        validateSecret(secret);
+        this.expirationMs = validateExpiration(expirationMsValue);
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
     }
 
     public String generateToken(String subject) {
@@ -56,5 +57,32 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private void validateSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret is missing. Set jwt.secret in games-backend/.env before startup.");
+        }
+
+        int secretLength = secret.getBytes(StandardCharsets.UTF_8).length;
+        if (secretLength < 32) {
+            throw new IllegalStateException("JWT secret must be at least 32 bytes long.");
+        }
+    }
+
+    private long validateExpiration(String expirationMsValue) {
+        if (expirationMsValue == null || expirationMsValue.isBlank()) {
+            throw new IllegalStateException("JWT expiration is missing. Set jwt.expiration-ms in games-backend/.env before startup.");
+        }
+
+        try {
+            long parsedExpiration = Long.parseLong(expirationMsValue.trim());
+            if (parsedExpiration <= 0) {
+                throw new IllegalStateException("JWT expiration must be greater than 0.");
+            }
+            return parsedExpiration;
+        } catch (NumberFormatException exception) {
+            throw new IllegalStateException("JWT expiration must be a valid number.", exception);
+        }
     }
 }

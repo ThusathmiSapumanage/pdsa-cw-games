@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.jsonwebtoken.JwtException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -40,11 +41,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = header.substring(BEARER_PREFIX.length());
+        String playerEmail;
 
         try {
-            String playerEmail = jwtService.extractSubject(token);
-            boolean userExists = playerRepository.findByPlayerEmail(playerEmail).isPresent();
+            playerEmail = jwtService.extractSubject(token);
+        } catch (JwtException | IllegalArgumentException ignored) {
+            // Invalid token; continue filter chain without setting authentication.
+            filterChain.doFilter(request, response);
+            return;
+        }
 
+        boolean userExists = playerRepository.findByPlayerEmail(playerEmail).isPresent();
+
+        try {
             if (playerEmail != null
                     && SecurityContextHolder.getContext().getAuthentication() == null
                     && userExists
@@ -56,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (RuntimeException ignored) {
+        } catch (JwtException | IllegalArgumentException ignored) {
             // Invalid token; continue filter chain without setting authentication.
         }
 

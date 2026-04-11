@@ -31,12 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as { email?: string; token?: string };
-        if (parsed.token) {
-          setIsAuthenticated(true);
-          setUserEmail(parsed.email ?? null);
-          setAccessToken(parsed.token);
-        }
+        const parsed = JSON.parse(stored) as { email?: string };
+        setUserEmail(parsed.email ?? null);
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -49,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
     setUserEmail(email);
     setAccessToken(token);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email, token }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email }));
   };
 
   const logout = () => {
