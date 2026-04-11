@@ -7,7 +7,11 @@ USE algocore_db;
 -- Stores all players who run game sessions.
 CREATE TABLE IF NOT EXISTS Player (
     Player_Id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    Player_Name VARCHAR(45) NOT NULL
+    Player_Name VARCHAR(45) NOT NULL,
+    Player_Email VARCHAR(45) NOT NULL UNIQUE,
+    Player_Password VARCHAR(255) NOT NULL,
+    CONSTRAINT chk_email_min_length CHECK (CHAR_LENGTH(Player_Email) >= 3),
+    CONSTRAINT chk_password_min_length CHECK (CHAR_LENGTH(Player_Password) >= 6)
 );
 
 -- Master list of supported games.

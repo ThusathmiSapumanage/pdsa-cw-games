@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
+import AuthGate from "../../../components/auth/AuthGate";
 import AlgoInput from "../../../components/forms/AlgoInput";
 import AlgoNotify, { NotifyType } from "../../../components/forms/AlgoNotify";
 
@@ -67,8 +68,6 @@ function MatrixTable({
   return (
     <div className="w-full">
       {/* Title with some spacing */}
-      <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 mb-3">{title}</h4>
-      
       {/* Scrollable container for large matrices */}
       <div className="overflow-auto max-h-[420px] border border-white/5 rounded-lg bg-[#0A0A0A]">
         <table className="w-full text-xs border-collapse">
@@ -205,7 +204,7 @@ export default function MinimumCostPage() {
       : "Hungarian";
 
   return (
-    <>
+    <AuthGate>
       <GameLayoutShell
         gameId="02" 
         title="MinCost Assignment"
@@ -384,6 +383,6 @@ export default function MinimumCostPage() {
         message={notify.message}
         onClose={() => setNotify((prev) => ({ ...prev, show: false }))}
       />
-    </>
+    </AuthGate>
   );
 }
