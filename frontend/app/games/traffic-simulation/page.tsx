@@ -60,6 +60,11 @@ export default function TrafficSimulationPage() {
     }, {});
   }, [roads]);
 
+  const bottleneckThreshold = useMemo(() => {
+    const vals = Object.values(roadMap);
+    return vals.length ? Math.min(...vals) + 1 : 0;
+  }, [roadMap]);
+
   async function generateRound() {
     setLoading(true);
     setError("");
@@ -81,7 +86,7 @@ export default function TrafficSimulationPage() {
 
       setDinicRun(await readJson(dinicRes, "Dinic failed"));
       setFordRun(await readJson(fordRes, "Ford-Fulkerson failed"));
-      setStatus("System active. Compute the maximum flow from A to T.");
+      setStatus("System active. Trace the animated routes and compute max flow.");
     } catch (e: any) {
       setError(e.message || "Round setup failed");
       setStatus("Round setup failed.");
@@ -105,7 +110,7 @@ export default function TrafficSimulationPage() {
       );
       const data = await readJson(res, "Submit failed");
       setSubmission(data);
-      setStatus(data.correct ? "Correct maximum flow identified." : "Incorrect answer. Try again.");
+      setStatus(data.correct ? "Correct maximum flow identified." : "Incorrect answer. Trace bottlenecks and retry.");
     } catch (e: any) {
       setError(e.message || "Submit failed");
     } finally {
@@ -151,23 +156,46 @@ export default function TrafficSimulationPage() {
   const visualization = (
     <div className="w-full h-[500px] rounded-xl border border-blue-500/20 bg-blue-500/[0.03] p-4">
       <svg viewBox="0 0 810 430" className="w-full h-full">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="rgba(96,165,250,0.9)" />
+          </marker>
+        </defs>
+
         {EDGE_ORDER.map(([from, to]) => {
           const s = NODE_POSITIONS[from];
           const e = NODE_POSITIONS[to];
           const lx = (s.x + e.x) / 2;
           const ly = (s.y + e.y) / 2 - 10;
+          const cap = roadMap[keyFor(from, to)];
+          const isBottleneck = cap !== undefined && cap <= bottleneckThreshold;
+
           return (
             <g key={keyFor(from, to)}>
-              <line x1={s.x} y1={s.y} x2={e.x} y2={e.y} stroke="rgba(96,165,250,0.6)" strokeWidth="2" />
+              <line
+                x1={s.x}
+                y1={s.y}
+                x2={e.x}
+                y2={e.y}
+                stroke={isBottleneck ? "rgba(248,113,113,0.9)" : "rgba(96,165,250,0.7)"}
+                strokeWidth={isBottleneck ? 3 : 2}
+                strokeDasharray="8 6"
+                markerEnd="url(#arrow)"
+              >
+                <animate attributeName="stroke-dashoffset" from="14" to="0" dur="0.8s" repeatCount="indefinite" />
+              </line>
               <text x={lx} y={ly} fill="white" fontSize="12" textAnchor="middle">
-                {roadMap[keyFor(from, to)] ?? "--"}
+                {cap ?? "--"}
               </text>
             </g>
           );
         })}
+
         {Object.entries(NODE_POSITIONS).map(([node, p]) => (
           <g key={node}>
-            <circle cx={p.x} cy={p.y} r="28" fill="rgba(15,23,42,0.95)" stroke="rgba(96,165,250,0.8)" />
+            <circle cx={p.x} cy={p.y} r="28" fill="rgba(15,23,42,0.95)" stroke="rgba(96,165,250,0.8)">
+              <animate attributeName="r" values="28;29;28" dur="2s" repeatCount="indefinite" />
+            </circle>
             <text x={p.x} y={p.y + 4} fill="white" textAnchor="middle" fontSize="16">
               {node}
             </text>
@@ -182,6 +210,7 @@ export default function TrafficSimulationPage() {
       <p>Status: <span className="text-yellow-400">{status}</span></p>
       <p>Dinic: {dinicRun ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)` : "--"}</p>
       <p>Ford: {fordRun ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)` : "--"}</p>
+      <p>Bottleneck threshold: {bottleneckThreshold || "--"}</p>
       <p>
         Result: {submission ? (
           submission.correct ? <span className="text-green-400">Correct</span> : <span className="text-red-400">Incorrect</span>
@@ -194,7 +223,7 @@ export default function TrafficSimulationPage() {
     <GameLayoutShell
       gameId="03"
       title="TRAFFIC SIMULATION"
-      description="Maximum vehicle throughput analysis across a directed network. Solves for peak capacity flow."
+      description="Maximum vehicle throughput analysis across a directed network with animated flow routes and bottleneck detection."
       controls={controls}
       visualization={visualization}
       results={results}
