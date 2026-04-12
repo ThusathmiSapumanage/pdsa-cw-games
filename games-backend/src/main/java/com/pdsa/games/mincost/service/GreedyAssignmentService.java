@@ -1,6 +1,6 @@
 package com.pdsa.games.mincost.service;
 
-import com.pdsa.games.mincost.model.Assignment;
+import com.pdsa.games.mincost.MinCostModel;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ public class GreedyAssignmentService {
         boolean[] usedRows = new boolean[n];
         boolean[] usedCols = new boolean[n];
         
-        List<Assignment> assignments = new ArrayList<>();
+        List<MinCostModel.Assignment> assignments = new ArrayList<>();
         List<String> logs = new ArrayList<>();
         int total = 0;
 
@@ -64,7 +64,7 @@ public class GreedyAssignmentService {
             usedCols[bestCol] = true;
             
             // Save the result for this step
-            assignments.add(new Assignment(bestRow, bestCol, bestValue));
+            assignments.add(new MinCostModel.Assignment(bestRow, bestCol, bestValue));
             total += bestValue;
             
             // Log what happened so the UI can show it
@@ -76,4 +76,3 @@ public class GreedyAssignmentService {
         return new AlgorithmSolveResult(total, assignments, logs, List.of());
     }
 }
-

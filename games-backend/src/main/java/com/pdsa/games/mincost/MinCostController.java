@@ -3,42 +3,42 @@ package com.pdsa.games.mincost;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
+/**
+ * MIN COST CONTROLLER:
+ * This is the API Gateway for the MinCost game.
+ * It's now very clean because error handling is moved to MinCostExceptionHandler,
+ * and data logic is in the Service/Repository.
+ */
 @RestController
 @RequestMapping("/api/mincost")
 @CrossOrigin(origins = "*")
 public class MinCostController {
-    // Service has all business logic for this game.
+    
     private final MinCostService minCostService;
 
-    // Constructor injection.
     public MinCostController(MinCostService minCostService) {
         this.minCostService = minCostService;
     }
 
-    // Returns statistics of the last 10 games played.
+    /**
+     * GET HISTORY: Returns charts data for the last 10 games.
+     */
     @GetMapping("/history")
     public ResponseEntity<?> getHistory() {
         return ResponseEntity.ok(minCostService.getHistory());
     }
 
-    // Starts one min-cost game round.
-    // Accepts input JSON and returns matrix + algorithm results.
+    /**
+     * POST START: Generates a matrix and solves it.
+     * Error handling is delegated to MinCostExceptionHandler.
+     */
     @PostMapping("/start")
-    public ResponseEntity<?> start(@RequestBody(required = false) MinCostService.MinCostStartRequest request) {
-        try {
-            // If body is empty, use defaults in service.
-            MinCostService.MinCostStartRequest payload = request == null
-                    ? new MinCostService.MinCostStartRequest(null, null, null)
-                    : request;
-            return ResponseEntity.ok(minCostService.startGame(payload));
-        } catch (IllegalArgumentException ex) {
-            // Validation errors come here.
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
-        } catch (Exception ex) {
-            // Any unknown server errors come here.
-            return ResponseEntity.internalServerError().body(Map.of("error", "Unexpected server error"));
-        }
+    public ResponseEntity<?> start(@RequestBody(required = false) MinCostModel.StartRequest request) {
+        // Use default empty request if none provided
+        MinCostModel.StartRequest payload = (request == null) 
+                ? new MinCostModel.StartRequest() 
+                : request;
+        
+        return ResponseEntity.ok(minCostService.startGame(payload));
     }
 }

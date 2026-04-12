@@ -1,17 +1,16 @@
 package com.pdsa.games.mincost.service;
 
-import com.pdsa.games.mincost.model.Assignment;
-import com.pdsa.games.mincost.model.HungarianStepDto;
-
+import com.pdsa.games.mincost.MinCostModel;
 import java.util.List;
 
 /**
  * Result of running one assignment algorithm on a cost matrix.
+ * Uses the professional MinCostModel classes.
  */
 public record AlgorithmSolveResult(
         int totalCost,
-        List<Assignment> assignments,
+        List<MinCostModel.Assignment> assignments,
         List<String> logs,
-        List<HungarianStepDto> hungarianSteps
+        List<MinCostModel.HungarianStep> hungarianSteps
 ) {
 }
