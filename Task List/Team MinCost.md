@@ -40,15 +40,15 @@ This file tracks the synchronized development progress for the Minimum Cost Assi
 *   **Rumeth:** [ ] Present localized logs explaining *why* each choice was made.
 
 ### Day 6 – Persistence & Analytics
-*   **Rumeth:** [ ] Create DB Entity/Repository for execution results.
-*   **Rumeth:** [ ] Setup silent `.save()` triggers in the API.
-*   **Rumeth:** [ ] Construct `GET` endpoint for historical statistics.
-*   **Chaniru:** [ ] Implement responsive analytical charts (Bar/Line).
-*   **Chaniru:** [ ] Graph time efficiency and cost margins from history API.
+*   **Rumeth:** [/] Create DB Entity/Repository for execution results (Implemented with JdbcTemplate).
+*   **Rumeth:** [x] Setup silent `.save()` triggers in the API.
+*   **Rumeth:** [x] Construct `GET` endpoint for historical statistics.
+*   **Chaniru:** [x] Implement responsive analytical charts (Bar/Line).
+*   **Chaniru:** [x] Graph time efficiency and cost margins from history API.
 
 ### Day 7 – Final Polish & Validation
-*   **Chaniru:** [ ] Run load testing (100x100 constraints) on JVM.
-*   **Chaniru:** [ ] **IMPORTANT:** Add robust exception handling and edge-case logic.
+*   **Chaniru:** [x] Run load testing (100x100 constraints) on JVM.
+*   **Chaniru:** [x] **IMPORTANT:** Add robust exception handling and edge-case logic.
 *   **Rumeth:** [ ] Apply professional UI polish (padding, transitions).
 *   **Rumeth:** [ ] **IMPORTANT:** Final responsiveness and accessibility check.
 
