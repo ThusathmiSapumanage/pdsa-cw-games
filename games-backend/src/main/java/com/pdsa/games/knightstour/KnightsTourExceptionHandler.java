@@ -1,5 +1,7 @@
 package com.pdsa.games.knightstour;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,8 +11,10 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@RestControllerAdvice(assignableTypes = KnightsTourController.class)
+public class KnightsTourExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(KnightsTourExceptionHandler.class);
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex) {
@@ -24,8 +28,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        ex.printStackTrace();
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        logger.error("Unhandled exception in KnightsTour", ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred");
     }
 
     private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
