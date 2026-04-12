@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = KnightsTourController.class)
 public class KnightsTourExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(KnightsTourExceptionHandler.class);

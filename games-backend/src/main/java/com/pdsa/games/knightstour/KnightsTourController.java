@@ -49,7 +49,7 @@ public class KnightsTourController {
                     schema = @Schema(implementation = KnightsTourModel.StartResponse.class),
                     examples = @ExampleObject(
                         name = "Start response",
-                        value = "{\n  \"sessionId\": 1001,\n  \"playerId\": 1,\n  \"boardSize\": 8,\n  \"startX\": 1,\n  \"startY\": 1,\n  \"expectedMoveCount\": 64,\n  \"algorithmName\": \"Warnsdorff\",\n  \"algorithmExecutionTimeMs\": 12.5,\n  \"status\": \"SUCCESS\",\n  \"message\": \"Round started successfully\"\n}"
+                        value = "{\n  \"sessionId\": 1001,\n  \"playerId\": 1,\n  \"boardSize\": 8,\n  \"startX\": 1,\n  \"startY\": 1,\n  \"expectedMoveCount\": 64,\n  \"algorithmName\": \"Warnsdorff\",\n  \"algorithmExecutionTimeMs\": 12.5,\n  \"status\": \"READY\",\n  \"message\": \"Knight's Tour round generated successfully.\"\n}"
                     )
                 )
             ),
