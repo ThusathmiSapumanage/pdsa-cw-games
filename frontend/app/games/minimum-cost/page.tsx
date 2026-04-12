@@ -6,6 +6,7 @@ import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 import AuthGate from "../../../components/auth/AuthGate";
 import AlgoInput from "../../../components/forms/AlgoInput";
 import AlgoNotify, { NotifyType } from "../../../components/forms/AlgoNotify";
+import MinCostAnalytics from "../../../components/mincost/MinCostAnalytics";
 
 /* 
  * Assignment Type:
@@ -23,7 +24,6 @@ type Assignment = {
 /* 
  * ApiResponse Type:
  * This matches the JSON payload we get from our Spring Boot backend.
- * We get the matrix, total costs for both algos, and their assignment steps.
  */
 type ApiResponse = {
   matrix: number[][];
@@ -38,6 +38,10 @@ type ApiResponse = {
   hungarianTimeMs: number;
 };
 
+/*
+ * Step-by-Step data for the Hungarian visualizer.
+ * Helps us see the reduction stages.
+ */
 type HungarianStep = {
   type: string;
   matrix: number[][];
@@ -49,7 +53,7 @@ type HungarianStep = {
   delta: number | null;
 };
 
-// Shape of a past game record
+// Shape of a past game record for the history table
 type HistoryItem = {
   date: string;
   n: number;
@@ -103,7 +107,7 @@ function MatrixTable({
       <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2 px-1 font-mono">
         {title}
       </p>
-      {/* Container with scroll hack for huge 100x100 matrices */}
+      {/* Container with scroll hack for huge matrices */}
       <div className="overflow-auto max-h-[420px] border border-white/5 rounded-lg bg-[#0A0A0A] custom-scrollbar">
         <table className="w-full text-[10px] border-collapse">
           <tbody>
@@ -112,25 +116,18 @@ function MatrixTable({
                 {row.map((value, colIndex) => {
                   const cellKey = `${rowIndex}-${colIndex}`;
                   const isAssigned = assignmentMap.has(cellKey);
-                  // currentPick = The very last cell chosen in step-by-step
+                  // isCurrentPick = Highlight the cell chosen at the current step
                   const isCurrentPick = showStepByStep && assignments[activeStep]?.row === rowIndex && assignments[activeStep]?.col === colIndex;
-                  
-                  // isBlocked = This cell can no longer be picked because its row/col is taken
                   const isBlocked = showStepByStep && isGreedy && (blockedRows.has(rowIndex) || blockedCols.has(colIndex));
 
-                  // Logic for choosing cell colors based on its state
                   let cellClass = "border border-white/5 p-2 text-center transition-all duration-300 ";
                   if (isCurrentPick) {
-                    // Purple = This is the cell being picked RIGHT NOW
                     cellClass += "bg-purple-500/40 text-purple-200 font-bold scale-110 relative z-10 shadow-lg shadow-purple-500/20";
                   } else if (isAssigned) {
-                    // Green = This cell was already picked in a previous step
                     cellClass += "bg-green-500/20 text-green-300 font-medium";
                   } else if (isBlocked) {
-                    // Dimmed = This cell is blocked (PDSA logic: row/col already used)
                     cellClass += "opacity-10 text-white/20";
                   } else {
-                    // Generic color for free cells
                     cellClass += "text-white/40";
                   }
 
@@ -150,20 +147,20 @@ function MatrixTable({
 }
 
 export default function MinimumCostPage() {
-  // Input states: we keep these as strings so typing feels natural
+  // Input states (strings for easier typing)
   const [n, setN] = useState("10"); 
   const [minCost, setMinCost] = useState("20");
   const [maxCost, setMaxCost] = useState("200");
   
-  // App states: loading spinner status and backend results
+  // Loading and result states
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
-  // Visualization state: which step we are looking at
+  // Visualizer control state
   const [currentStep, setCurrentStep] = useState<number | undefined>(undefined);
   
-  // Notification system: shown for errors or success
+  // Custom notification state (Better than windows alerts)
   const [notify, setNotify] = useState<{
     show: boolean;
     type: NotifyType;
@@ -176,14 +173,13 @@ export default function MinimumCostPage() {
     message: "",
   });
 
-  // Effect: whenever we get new results, reset the visualizer back to full view
-  // Also fetch history on load
+  // Pull history from backend on page load and after every new run
   useEffect(() => {
     if (result) setCurrentStep(undefined);
     fetchHistory();
   }, [result]);
 
-  // Fetches the last 10 games from the database
+  // Network call to get past 10 games
   const fetchHistory = async () => {
     try {
       const response = await fetch("http://localhost:8080/api/mincost/history");
@@ -194,14 +190,18 @@ export default function MinimumCostPage() {
     }
   };
 
-  // Main Logic: Sends input to backend and gets the result
+  /**
+   * RUN GAME:
+   * 1. Validates the numbers.
+   * 2. Sends request to Spring Boot.
+   * 3. Updates the results and charts.
+   */
   const runGame = async () => {
-    // 1. Convert our inputs to numbers
     const nValue = Number(n);
     const minValue = Number(minCost);
     const maxValue = Number(maxCost);
 
-    // 2. BASIC VALIDATION (Student Level - Check ranges for viva)
+    // STUDENT VALIDATION: Simple range checks
     if (!Number.isInteger(nValue) || nValue < 5 || nValue > 100) {
       setNotify({ 
         show: true, 
@@ -212,7 +212,6 @@ export default function MinimumCostPage() {
       return;
     }
     
-    // Check if costs make sense (Min must be less than Max)
     if (minValue < 1 || maxValue < minValue) {
       setNotify({ 
         show: true, 
@@ -223,16 +222,12 @@ export default function MinimumCostPage() {
       return;
     }
 
-    // 3. START LOADING
     setIsLoading(true);
     
     try {
-      // 4. FETCH DATA FROM SPRING BOOT
       const response = await fetch("http://localhost:8080/api/mincost/start", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           n: nValue, 
           minCost: minValue, 
@@ -242,64 +237,52 @@ export default function MinimumCostPage() {
       
       const data = await response.json();
       
-      // If backend throws an error (like N > 100), we handle it here
       if (!response.ok) {
         throw new Error(data.error || "Internal server error occurred!");
       }
 
-      // 5. UPDATE UI WITH RESULTS
       setResult(data);
       setNotify({ 
         show: true, 
         type: "success", 
-        title: "Matrix Generated", 
-        message: "Both algorithms ran successfully! Check the graphs below." 
+        title: "Calculated!", 
+        message: "Check the results and the analytics graphs below." 
       });
 
     } catch (error) {
-      // Handle network or system failures
       setNotify({
         show: true,
         type: "error",
-        title: "System Fault",
-        message: error instanceof Error ? error.message : "System seems offline. Try starting the backend!",
+        title: "Server Error",
+        message: error instanceof Error ? error.message : "Backend is offline. Check your console!",
       });
     } finally {
-      // Always stop loading spinner
       setIsLoading(false);
     }
   };
 
-  /* Visualization Navigation Logic */
-  
-  // Go to next step in greedy animation
   const nextStepGreedy = () => {
     if (!result) return;
     const maxSteps = result.greedyAssignments.length;
     setCurrentStep((prev) => (prev === undefined ? 0 : Math.min(prev + 1, maxSteps - 1)));
   };
 
-  // Go to previous step in greedy animation
   const prevStepGreedy = () => {
     setCurrentStep((prev) => (prev === undefined || prev === 0 ? 0 : prev - 1));
   };
-
-  // Note: the original code had an unused 'optimalAlgorithm' variable here which was removed to fix lint errors.
 
   return (
     <AuthGate>
       <GameLayoutShell
         gameId="02" 
         title="MinCost Assignment"
-        description="Connect with backend to find optimal task assignment using Hungarian and Greedy algorithms."
+        description="Optimize worker-task allocation using PDSA algorithms (Hungarian vs Greedy)."
         controls={
           <>
-            {/* Input fields with validation triggers */}
             <AlgoInput label="Size (N)" type="number" value={n} onChange={setN} required />
             <AlgoInput label="Min Cost" type="number" value={minCost} onChange={setMinCost} required />
             <AlgoInput label="Max Cost" type="number" value={maxCost} onChange={setMaxCost} required />
             
-            {/* Execute Button with Loading Spinner */}
             <button
               onClick={runGame}
               disabled={isLoading}
@@ -318,7 +301,6 @@ export default function MinimumCostPage() {
               )}
             </button>
 
-            {/* Step-by-Step Logic Controls (shown only after first run) */}
             {result && (
               <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
                 <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Visualizer Controls</p>
@@ -351,7 +333,7 @@ export default function MinimumCostPage() {
         visualization={
           result ? (
             <div className="w-full h-full flex flex-col gap-8 overflow-auto pb-10">
-              {/* Display Matrix area: Greedy vs Hungarian */}
+              {/* Matrix display area */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <MatrixTable 
                   title={`Greedy Strategy Picks ${currentStep !== undefined ? `(Step ${currentStep + 1})` : "(Full View)"}`} 
@@ -367,7 +349,7 @@ export default function MinimumCostPage() {
                 />
               </div>
 
-              {/* Log Panels: Explain what the algorithms did in simple terms */}
+              {/* Execution logs explaining the process simply */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="bg-[#050505] border border-white/5 rounded-xl p-6 shadow-2xl overflow-hidden">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-blue-500 mb-4 font-bold">Execution Steps</p>
@@ -391,50 +373,53 @@ export default function MinimumCostPage() {
                 <div className="bg-[#050505] border border-white/5 rounded-xl p-6 shadow-2xl">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-green-500 mb-4 font-bold">Concept Summary</p>
                   <div className="text-[11px] text-white/40 leading-relaxed font-mono">
-                    <p className="mb-3 italic">
-                      Notes for Viva:
+                    <p className="mb-3 italic text-white/60 underline decoration-green-500/30">
+                      Viva Study Notes:
                     </p>
                     <p className="mb-3">
-                      <span className="text-white/60 font-bold">GREEDY:</span> Fast but "selfish". Picks the cheapest cell it sees right now.
+                      <span className="text-white/60 font-bold">GREEDY:</span> Fast but "selfish". Picks the cheapest cell it sees right now. Might miss a better overall deal.
                     </p>
                     <p>
-                      <span className="text-white/60 font-bold">HUNGARIAN:</span> Smart but slower. Uses matrix reduction (PDSA class) to find truly best price.
+                      <span className="text-white/60 font-bold">HUNGARIAN:</span> Smart but slower. Uses matrix reduction (PDSA class theory) to find the TRULY lowest cost.
                     </p>
                   </div>
                 </div>
               </div>
+
+              {/* Day 6 Task: Analytical Charts Section */}
+              <div className="pt-8 border-t border-white/5">
+                <p className="text-[10px] uppercase tracking-[0.4em] text-white/20 mb-2 font-mono">Performance Analytics</p>
+                <MinCostAnalytics history={history} />
+              </div>
             </div>
           ) : (
-            /* Show this before we run the game */
             <div className="flex flex-col items-center gap-4 text-white/20 h-full justify-center">
                <svg className="w-16 h-16 opacity-10 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                </svg>
-               <p className="text-xs uppercase tracking-[0.4em] font-mono">System Standby: Click Run</p>
+               <p className="text-xs uppercase tracking-[0.4em] font-mono">System Ready: Give Inputs & Click Run</p>
             </div>
           )
         }
         results={
-          /* This shows the small result cards on the right */
           <div className="space-y-4">
-            <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5">
-              <span className="text-[10px] font-mono text-white/40 uppercase">Greedy Tool Total</span>
+            <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5 shadow-inner">
+              <span className="text-[10px] font-mono text-white/40 uppercase">Greedy Total</span>
               <span className="text-xl font-black text-white">{result?.greedyTotalCost ?? "--"}</span>
             </div>
 
-            <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5">
-              <span className="text-[10px] font-mono text-white/40 uppercase">Optimal (Hungarian)</span>
+            <div className="flex justify-between items-center bg-white/5 p-4 rounded-lg border border-white/5 shadow-inner">
+              <span className="text-[10px] font-mono text-white/40 uppercase">Hungarian Total</span>
               <span className="text-xl font-black text-green-400">{result?.hungarianTotalCost ?? "--"}</span>
             </div>
 
             <div className="flex justify-between items-center bg-green-600/10 p-3 rounded-lg border border-green-500/20">
-              <span className="text-[10px] font-mono text-green-400 uppercase">Status</span>
+              <span className="text-[10px] font-mono text-green-400 uppercase tracking-widest font-bold">Status</span>
               <span className="text-[10px] font-bold text-green-300">
-                {result ? (result.hungarianTotalCost < result.greedyTotalCost ? "Optimal Wins!" : "Greedy matched Optimal!") : "--"}
+                {result ? (result.hungarianTotalCost < result.greedyTotalCost ? "Hungarian Wins!" : "Greedy Match!") : "Waiting..."}
               </span>
             </div>
 
-            {/* Performance metrics section */}
             <div className="grid grid-cols-2 gap-2 pt-4">
               <div className="text-center p-3 bg-blue-600/10 rounded-lg border border-blue-500/20">
                 <p className="text-[9px] text-blue-400 uppercase font-bold mb-1">Greedy Time</p>
@@ -447,18 +432,18 @@ export default function MinimumCostPage() {
               </div>
             </div>
 
-            {/* History Table (New) */}
+            {/* Recent Session List */}
             {history.length > 0 && (
               <div className="mt-8 pt-8 border-t border-white/5">
-                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-4">Recent System Runs</p>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-4">Previous Runs</p>
                 <div className="space-y-2 max-h-40 overflow-auto pr-2 custom-scrollbar">
-                  {history.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-2 rounded bg-white/[0.02] border border-white/5">
+                  {history.slice(0, 5).map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-2 rounded bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-colors">
                       <div className="flex flex-col">
                         <span className="text-[8px] text-white/20 font-mono italic">
-                          {new Date(item.date).toLocaleDateString()}
+                          {new Date(item.date).toLocaleTimeString()}
                         </span>
-                        <span className="text-[10px] text-white/60">N={item.n}</span>
+                        <span className="text-[10px] text-white/60">Matrix {item.n}x{item.n}</span>
                       </div>
                       <span className="text-xs font-bold text-green-400/70">{item.cost}</span>
                     </div>
@@ -470,7 +455,6 @@ export default function MinimumCostPage() {
         }
       />
 
-      {/* Professional Popups: Using our system-generated UI, not alert() */}
       <AlgoNotify
         show={notify.show}
         type={notify.type}
@@ -481,3 +465,4 @@ export default function MinimumCostPage() {
     </AuthGate>
   );
 }
+

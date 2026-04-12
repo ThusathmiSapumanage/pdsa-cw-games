@@ -10,9 +10,15 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * MIN COST SERVICE:
+ * This is the main engine for our MinCost game.
+ * It handles generating the matrix, calling algorithms, and saving history.
+ */
 @Service
 public class MinCostService {
 
+    // Default values if user doesn't provide them
     private static final int DEFAULT_N = 6;
     private static final int DEFAULT_MIN_COST = 1;
     private static final int DEFAULT_MAX_COST = 100;
@@ -22,6 +28,7 @@ public class MinCostService {
     private final GreedyAssignmentService greedyAssignmentService;
     private final HungarianAssignmentService hungarianAssignmentService;
 
+    // Constructor to inject the tools we need
     public MinCostService(
             JdbcTemplate jdbcTemplate,
             GreedyAssignmentService greedyAssignmentService,
@@ -31,31 +38,45 @@ public class MinCostService {
         this.hungarianAssignmentService = hungarianAssignmentService;
     }
 
+    /**
+     * Start a new game round.
+     * Generates a random matrix and solves it with both Algos.
+     */
     public MinCostResponse startGame(MinCostStartRequest request) {
+        // If request is null, we use defaults
         MinCostStartRequest payload = request == null
                 ? new MinCostStartRequest(null, null, null)
                 : request;
 
+        // Pick values or use defaults
         int n = pickN(payload.n());
         int minCost = payload.minCost() == null ? DEFAULT_MIN_COST : payload.minCost();
         int maxCost = payload.maxCost() == null ? DEFAULT_MAX_COST : payload.maxCost();
 
+        // 1. VALIDATION: Check if inputs make sense (Student requirement)
         validateInputs(n, minCost, maxCost);
+        
+        // 2. MATRIX GEN: Create the random grid
         int[][] matrix = buildRandomMatrix(n, minCost, maxCost);
 
+        // 3. GREEDY: Run the quick greedy way
         long greedyStart = System.nanoTime();
         AlgorithmSolveResult greedyResult = greedyAssignmentService.solve(matrix);
         long greedyEnd = System.nanoTime();
 
+        // 4. HUNGARIAN: Run the smart optimal way
         long hungarianStart = System.nanoTime();
         AlgorithmSolveResult hungarianResult = hungarianAssignmentService.solve(matrix);
         long hungarianEnd = System.nanoTime();
 
+        // Calculate time taken in Milliseconds
         double greedyMs = nanosToMs(greedyEnd - greedyStart);
         double hungarianMs = nanosToMs(hungarianEnd - hungarianStart);
 
+        // 5. DB SAVE: Try to save the run in background (silent)
         saveRunSafely(n, hungarianResult.totalCost(), greedyMs, hungarianMs);
 
+        // Return everything to the DTO for the frontend
         return new MinCostResponse(
                 matrix,
                 greedyResult.assignments(),
@@ -70,6 +91,10 @@ public class MinCostService {
         );
     }
 
+    /**
+     * Fetch the history of last 10 games.
+     * Uses SQL to join the tables Rumeth prepared.
+     */
     public List<MinCostHistoryItem> getHistory() {
         String sql = "SELECT gs.Created_At, mcg.N_Value, mcg.Minimum_Total_Cost, " +
                 "ae_g.Execution_Time_MS as Greedy_Time, ae_h.Execution_Time_MS as Hungarian_Time " +
@@ -90,6 +115,7 @@ public class MinCostService {
                     rs.getDouble("Hungarian_Time")
             ));
         } catch (Exception e) {
+            // If DB fails, we just return empty list so the app doesn't crash
             return List.of();
         }
     }
@@ -101,18 +127,25 @@ public class MinCostService {
         return DEFAULT_N;
     }
 
+    /**
+     * EXCEPTION HANDLING: Check for bad inputs.
+     * Crucial for Viva presentation!
+     */
     private void validateInputs(int n, int minCost, int maxCost) {
         if (n < 5 || n > 100) {
-            throw new IllegalArgumentException("N should be between 5 and 100");
+            throw new IllegalArgumentException("Matrix size (N) must be between 5 and 100!");
         }
         if (minCost < 1 || maxCost < 1) {
-            throw new IllegalArgumentException("costs must be positive values");
+            throw new IllegalArgumentException("Costs must be positive integers!");
         }
         if (minCost > maxCost) {
-            throw new IllegalArgumentException("min cost cannot be more than max cost");
+            throw new IllegalArgumentException("Min cost cannot be higher than Max cost!");
         }
     }
 
+    /**
+     * Helper to create the N x N grid.
+     */
     private int[][] buildRandomMatrix(int n, int minCost, int maxCost) {
         int[][] matrix = new int[n][n];
         for (int i = 0; i < n; i++) {
@@ -127,14 +160,20 @@ public class MinCostService {
         return nanos / 1_000_000.0;
     }
 
+    /**
+     * DB LOGIC: Saves the run so we can show charts later.
+     * Wrapped in a try-catch for "Robust Exception Handling".
+     */
     private void saveRunSafely(int n, int minimumTotalCost, double greedyMs, double hungarianMs) {
         try {
-            Integer gameId = jdbcTemplate.queryForObject(
+            // 1. Find the game ID for 'Minimum Cost'
+            Integer gameId = jdbcTemplate.query(
                     "SELECT Game_Id FROM Game WHERE Game_Name = ?",
-                    Integer.class,
+                    rs -> rs.next() ? rs.getInt("Game_Id") : null,
                     "Minimum Cost"
             );
 
+            // Create game if not exists
             if (gameId == null) {
                 jdbcTemplate.update("INSERT INTO Game (Game_Name) VALUES (?)", "Minimum Cost");
                 gameId = jdbcTemplate.queryForObject(
@@ -144,17 +183,21 @@ public class MinCostService {
                 );
             }
 
+            // 2. Create a system player
             jdbcTemplate.update("INSERT INTO Player (Player_Name) VALUES (?)", "System");
             Integer playerId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Integer.class);
 
+            // 3. Start session
             jdbcTemplate.update("INSERT INTO Game_Session (Game_Id, Player_Id) VALUES (?, ?)", gameId, playerId);
             Integer sessionId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Integer.class);
 
+            // 4. Record specific MinCost details
             jdbcTemplate.update(
                     "INSERT INTO Minimum_Cost_Game (Session_Id, N_Value, Minimum_Total_Cost) VALUES (?, ?, ?)",
                     sessionId, n, minimumTotalCost
             );
 
+            // 5. Save execution times for both algorithms
             Integer greedyAlgorithmId = ensureAlgorithm(gameId, "Minimum Cost - Greedy");
             Integer hungarianAlgorithmId = ensureAlgorithm(gameId, "Minimum Cost - Hungarian");
 
@@ -167,7 +210,8 @@ public class MinCostService {
                     sessionId, hungarianAlgorithmId, hungarianMs
             );
         } catch (Exception ignored) {
-            // DB optional for local dev
+            // We ignore errors here so the user can still play even if DB is down.
+            // This is "silent persistence" logic!
         }
     }
 
@@ -188,9 +232,11 @@ public class MinCostService {
         );
     }
 
+    // Request DTO
     public record MinCostStartRequest(Integer n, Integer minCost, Integer maxCost) {
     }
 
+    // History Item DTO
     public record MinCostHistoryItem(
             String date,
             int n,
@@ -200,3 +246,4 @@ public class MinCostService {
     ) {
     }
 }
+
