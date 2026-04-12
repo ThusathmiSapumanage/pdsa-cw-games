@@ -13,6 +13,7 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,6 +90,10 @@ public class TrafficService {
     public List<Road> generateTrafficNetwork(Integer sessionId) {
         validateSession(sessionId);
 
+        // Ensure the parent traffic game row exists before writing child road rows.
+        TrafficSimGame trafficGame = trafficSimGameRepository.findById(sessionId)
+                .orElseGet(() -> trafficSimGameRepository.save(new TrafficSimGame(sessionId, 0)));
+
         List<Road> existing = roadRepository.findByIdSessionId(sessionId);
         if (!existing.isEmpty()) {
             roadRepository.deleteAll(existing);
@@ -101,8 +106,9 @@ public class TrafficService {
         }
 
         List<Road> saved = roadRepository.saveAll(roads);
-        int maxFlow = runDinic(buildCapacityGraph(sessionId));
-        trafficSimGameRepository.save(new TrafficSimGame(sessionId, maxFlow));
+        int maxFlow = runDinic(buildCapacityGraphFromRoads(saved));
+        trafficGame.setMaxFlowValue(maxFlow);
+        trafficSimGameRepository.save(trafficGame);
         return saved;
     }
 
@@ -173,6 +179,26 @@ public class TrafficService {
             );
         }
 
+        Map<String, Map<String, Integer>> graph = new HashMap<>();
+        for (Road road : roads) {
+            String from = road.getId().getStartNode();
+            String to = road.getId().getEndNode();
+            int cap = road.getCapacity();
+
+            graph.putIfAbsent(from, new HashMap<>());
+            graph.putIfAbsent(to, new HashMap<>());
+            graph.get(from).put(to, cap);
+            graph.get(to).putIfAbsent(from, 0);
+        }
+
+        if (!graph.containsKey(SOURCE) || !graph.containsKey(SINK)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Traffic network is missing source or sink nodes");
+        }
+
+        return graph;
+    }
+
+    private Map<String, Map<String, Integer>> buildCapacityGraphFromRoads(List<Road> roads) {
         Map<String, Map<String, Integer>> graph = new HashMap<>();
         for (Road road : roads) {
             String from = road.getId().getStartNode();
@@ -347,26 +373,36 @@ public class TrafficService {
     }
 
     private GameModel ensureTrafficGame() {
-        return gameRepository.findAll().stream()
-                .filter(game -> GAME_NAME.equals(game.getGameName()))
-                .findFirst()
-                .orElseGet(() -> {
-                    GameModel game = new GameModel();
-                    game.setGameName(GAME_NAME);
-                    return gameRepository.save(game);
-                });
+        Optional<GameModel> existing = gameRepository.findByGameName(GAME_NAME);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            GameModel game = new GameModel();
+            game.setGameName(GAME_NAME);
+            return gameRepository.save(game);
+        } catch (DataIntegrityViolationException ex) {
+            return gameRepository.findByGameName(GAME_NAME)
+                    .orElseThrow(() -> ex);
+        }
     }
 
     private AlgorithmModel ensureAlgorithm(Integer gameId, String algorithmName) {
-        return algorithmRepository.findAll().stream()
-                .filter(algorithm -> algorithmName.equals(algorithm.getAlgorithmName()))
-                .findFirst()
-                .orElseGet(() -> {
-                    AlgorithmModel algorithm = new AlgorithmModel();
-                    algorithm.setGameId(gameId);
-                    algorithm.setAlgorithmName(algorithmName);
-                    return algorithmRepository.save(algorithm);
-                });
+        Optional<AlgorithmModel> existing = algorithmRepository.findByAlgorithmName(algorithmName);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        try {
+            AlgorithmModel algorithm = new AlgorithmModel();
+            algorithm.setGameId(gameId);
+            algorithm.setAlgorithmName(algorithmName);
+            return algorithmRepository.save(algorithm);
+        } catch (DataIntegrityViolationException ex) {
+            return algorithmRepository.findByAlgorithmName(algorithmName)
+                    .orElseThrow(() -> ex);
+        }
     }
 
     private GameSessionModel validateSession(Integer sessionId) {
@@ -377,7 +413,8 @@ public class TrafficService {
         return gameSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Game session not found for sessionId " + sessionId
+                "Game session not found for sessionId " + sessionId
+                    + ". Create a Game_Session first, then generate traffic."
                 ));
     }
 
