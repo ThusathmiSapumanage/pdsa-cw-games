@@ -5,15 +5,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 @Service
 public class KnightsTourService {
 
-    //Legal moves for a knight in chess (x and y offsets)
     private static final int[] DX = {2, 1, -1, -2, -2, -1, 1, 2};
     private static final int[] DY = {1, 2, 2, 1, -1, -2, -2, -1};
+
+    private static final String WARNSDORFF_NAME = "Warnsdorff";
+    private static final int MAX_ATTEMPTS_TO_GENERATE = 40;
 
     private final KnightsTourRepository repository;
     private final Random random = new Random();
@@ -22,61 +26,275 @@ public class KnightsTourService {
         this.repository = repository;
     }
 
-    //why transactional ? Because we want to ensure that all database operations related to a single execution of the Warnsdorff algorithm are treated as a single unit of work. If any part of the process fails (e.g., an exception is thrown while saving the game session or algorithm execution), the entire transaction will be rolled back, ensuring data integrity and preventing partial or inconsistent data from being stored in the database.
     @Transactional
-    public KnightsTourModel runWarnsdorff(KnightsTourModel request) {
-        validateRequest(request);
+    public KnightsTourModel.StartResponse startRound(KnightsTourModel.StartRequest request) {
+        validateStartRequest(request);
 
-        int boardSize = request.getBoardSize();
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
 
-        int startXZeroBased = random.nextInt(boardSize);
-        int startYZeroBased = random.nextInt(boardSize);
+        int algorithmId = mustFindAlgorithmId(WARNSDORFF_NAME);
+        GeneratedRound round = generateSuccessfulRound(request.getBoardSize());
 
         Long sessionId = repository.createGameSession(request.getPlayerId());
-        int warnsdorffAlgorithmId = mustFindAlgorithmId("Warnsdorff");
-
-        KnightsTourModel.AlgorithmResult warnsdorffResult =
-                executeWarnsdorff(boardSize, startXZeroBased, startYZeroBased);
-
-        int moveCountToSave = 0;
-        if ("SUCCESS".equals(warnsdorffResult.getStatus())) {
-            moveCountToSave = warnsdorffResult.getMoveCount();
-        }
 
         repository.saveKnightTourGame(
                 sessionId,
-                boardSize,
-                startXZeroBased + 1,
-                startYZeroBased + 1,
-                moveCountToSave
+                request.getBoardSize(),
+                round.startX + 1,
+                round.startY + 1,
+                round.result.getMoveCount()
         );
 
         repository.saveAlgorithmExecution(
                 sessionId,
-                warnsdorffAlgorithmId,
-                warnsdorffResult.getExecutionTimeMs(),
-                normalizeStatusForDb(warnsdorffResult.getStatus())
+                algorithmId,
+                round.result.getExecutionTimeMs(),
+                normalizeStatusForDb(round.result.getStatus())
         );
 
-        if ("SUCCESS".equals(warnsdorffResult.getStatus())) {
-            repository.saveKnightMoves(sessionId, warnsdorffAlgorithmId, warnsdorffResult.getMoves());
-        }
+        repository.saveKnightMoves(
+                sessionId,
+                algorithmId,
+                round.result.getMoves()
+        );
 
-        KnightsTourModel response = new KnightsTourModel();
-        response.setPlayerId(request.getPlayerId());
+        KnightsTourModel.StartResponse response = new KnightsTourModel.StartResponse();
         response.setSessionId(sessionId);
-        response.setBoardSize(boardSize);
-        response.setStartX(startXZeroBased + 1);
-        response.setStartY(startYZeroBased + 1);
-        response.setWarnsdorffResult(warnsdorffResult);
+        response.setPlayerId(request.getPlayerId());
+        response.setBoardSize(request.getBoardSize());
+        response.setStartX(round.startX + 1);
+        response.setStartY(round.startY + 1);
+        response.setExpectedMoveCount(round.result.getMoveCount());
+        response.setAlgorithmName(round.result.getAlgorithmName());
+        response.setAlgorithmExecutionTimeMs(round.result.getExecutionTimeMs());
+        response.setStatus("READY");
+        response.setMessage("Knight's Tour round generated successfully.");
 
         return response;
+    }
+
+    @Transactional
+    public KnightsTourModel.AnswerResponse submitAnswer(KnightsTourModel.AnswerRequest request) {
+        validateAnswerRequest(request);
+
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
+
+        if (!repository.sessionBelongsToPlayer(request.getSessionId(), request.getPlayerId())) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
+        }
+
+        KnightsTourModel.GameConfig gameConfig = repository.findGameConfig(request.getSessionId());
+        if (gameConfig == null) {
+            throw new IllegalStateException("Knight Tour game configuration not found for this session.");
+        }
+
+        int algorithmId = mustFindAlgorithmId(WARNSDORFF_NAME);
+        List<KnightsTourModel.Move> warnsdorffCorrectMoves =
+                repository.findCorrectMoves(request.getSessionId(), algorithmId);
+
+        if (warnsdorffCorrectMoves.isEmpty()) {
+            throw new IllegalStateException("Correct Warnsdorff path not found for this session.");
+        }
+
+        List<KnightsTourModel.Move> submittedMoves = normalizeMovesByStep(request.getMoves());
+
+        StructuralValidationResult structural = validateStructure(
+                submittedMoves,
+                gameConfig.getBoardSize(),
+                gameConfig.getStartX(),
+                gameConfig.getStartY(),
+                gameConfig.getMoveCount()
+        );
+
+        boolean warnsdorffValid = false;
+        String validationSource = null;
+        String outcome;
+        String reasonCode;
+        String message;
+
+        if (!structural.isValid()) {
+            outcome = "LOSE";
+            reasonCode = structural.getReasonCode();
+            message = buildStructuralFailureMessage(reasonCode);
+        } else {
+            warnsdorffValid = areMovesExactlyEqual(warnsdorffCorrectMoves, submittedMoves);
+
+            if (warnsdorffValid) {
+                outcome = "WIN";
+                validationSource = "WARNSDORFF";
+                reasonCode = "VALID_TOUR";
+                message = "Correct answer submitted. Tour validated by Warnsdorff.";
+            } else {
+                outcome = "LOSE";
+                reasonCode = "FAILED_WARNSDORFF_VALIDATION";
+                message = "Submitted path is structurally valid but does not match the correct Warnsdorff solution.";
+            }
+        }
+
+        boolean isCorrect = "WIN".equals(outcome);
+
+        String responseSummary = buildResponseSummary(
+                submittedMoves.size(),
+                isCorrect,
+                reasonCode,
+                validationSource
+        );
+
+        Long responseId = repository.saveResponse(
+                request.getSessionId(),
+                responseSummary,
+                isCorrect
+        );
+
+        repository.saveResponseMoves(responseId, submittedMoves);
+
+        KnightsTourModel.AnswerResponse response = new KnightsTourModel.AnswerResponse();
+        response.setResponseId(responseId);
+        response.setSessionId(request.getSessionId());
+        response.setPlayerId(request.getPlayerId());
+        response.setCorrect(isCorrect);
+        response.setOutcome(outcome);
+        response.setExpectedMoveCount(gameConfig.getMoveCount());
+        response.setSubmittedMoveCount(submittedMoves.size());
+        response.setStructuralValid(structural.isValid());
+        response.setCompleteTour(structural.isComplete());
+        response.setDeadEnd(structural.isDeadEnd());
+        response.setWarnsdorffValid(warnsdorffValid);
+        response.setBacktrackingValid(false);
+        response.setValidationSource(validationSource);
+        response.setReasonCode(reasonCode);
+        response.setMessage(message);
+
+        if (!isCorrect) {
+            response.setWarnsdorffCorrectMoves(warnsdorffCorrectMoves);
+            response.setWarnsdorffMoveCount(warnsdorffCorrectMoves.size());
+            response.setBacktrackingCorrectMoves(new ArrayList<>());
+            response.setBacktrackingMoveCount(0);
+        }
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public KnightsTourModel.HintResponse getHint(KnightsTourModel.HintRequest request) {
+        validateHintRequest(request);
+
+        if (!repository.playerExists(request.getPlayerId())) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
+
+        if (!repository.sessionBelongsToPlayer(request.getSessionId(), request.getPlayerId())) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
+        }
+
+        KnightsTourModel.GameConfig gameConfig = repository.findGameConfig(request.getSessionId());
+        if (gameConfig == null) {
+            throw new IllegalStateException("Knight Tour game configuration not found for this session.");
+        }
+
+        List<KnightsTourModel.Move> submittedMoves = normalizeMovesByStep(request.getMoves());
+
+        StructuralValidationResult structural = validateStructureForHint(
+                submittedMoves,
+                gameConfig.getBoardSize(),
+                gameConfig.getStartX(),
+                gameConfig.getStartY()
+        );
+
+        if (!structural.isValid()) {
+            throw new IllegalArgumentException(buildStructuralFailureMessage(structural.getReasonCode()));
+        }
+
+        KnightsTourModel.Move lastMove = submittedMoves.get(submittedMoves.size() - 1);
+        Set<String> visited = buildVisitedSet(submittedMoves);
+
+        List<KnightsTourModel.Move> hintMoves = findLegalUnvisitedNextMoves(
+                lastMove,
+                submittedMoves.size() + 1,
+                visited,
+                gameConfig.getBoardSize()
+        );
+
+        KnightsTourModel.HintResponse response = new KnightsTourModel.HintResponse();
+        response.setSessionId(request.getSessionId());
+        response.setPlayerId(request.getPlayerId());
+        response.setFromStepNo(lastMove.getStepNo());
+        response.setFromX(lastMove.getX());
+        response.setFromY(lastMove.getY());
+        response.setHintMoves(hintMoves);
+
+        if (hintMoves.isEmpty()) {
+            response.setMessage("No legal unvisited moves are available from your current square.");
+        } else {
+            response.setMessage("Possible legal next moves from your current square are returned.");
+        }
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public KnightsTourModel.CorrectAnswerResponse getCorrectAnswer(Long sessionId, Long playerId) {
+        if (sessionId == null || sessionId <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (playerId == null || playerId <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (!repository.playerExists(playerId)) {
+            throw new IllegalArgumentException("Player does not exist.");
+        }
+
+        if (!repository.sessionExists(sessionId)) {
+            throw new IllegalArgumentException("Session does not exist.");
+        }
+
+        if (!repository.sessionBelongsToPlayer(sessionId, playerId)) {
+            throw new IllegalArgumentException("This session does not belong to the given player.");
+        }
+
+        int algorithmId = mustFindAlgorithmId(WARNSDORFF_NAME);
+        List<KnightsTourModel.Move> correctMoves = repository.findCorrectMoves(sessionId, algorithmId);
+
+        if (correctMoves.isEmpty()) {
+            throw new IllegalStateException("Correct Knight Tour path not found for this session.");
+        }
+
+        KnightsTourModel.CorrectAnswerResponse response = new KnightsTourModel.CorrectAnswerResponse();
+        response.setSessionId(sessionId);
+        response.setPlayerId(playerId);
+        response.setAlgorithmName(WARNSDORFF_NAME);
+        response.setMoveCount(correctMoves.size());
+        response.setMoves(correctMoves);
+        response.setMessage("Correct answer loaded successfully.");
+
+        return response;
+    }
+
+    private GeneratedRound generateSuccessfulRound(int boardSize) {
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS_TO_GENERATE; attempt++) {
+            int startX = random.nextInt(boardSize);
+            int startY = random.nextInt(boardSize);
+
+            KnightsTourModel.AlgorithmResult result = executeWarnsdorff(boardSize, startX, startY);
+
+            if ("SUCCESS".equals(result.getStatus())) {
+                return new GeneratedRound(startX, startY, result);
+            }
+        }
+
+        throw new IllegalStateException("Could not generate a full Knight's Tour after several attempts.");
     }
 
     private int mustFindAlgorithmId(String algorithmName) {
         Integer algorithmId = repository.findAlgorithmId(algorithmName);
         if (algorithmId == null) {
-            throw new IllegalStateException("Algorithm '" + algorithmName + "' not found in Algorithm table.");
+            throw new IllegalStateException("Algorithm '" + algorithmName + "' not found.");
         }
         return algorithmId;
     }
@@ -85,7 +303,7 @@ public class KnightsTourService {
         long startNano = System.nanoTime();
 
         KnightsTourModel.AlgorithmResult result = new KnightsTourModel.AlgorithmResult();
-        result.setAlgorithmName("Warnsdorff");
+        result.setAlgorithmName(WARNSDORFF_NAME);
 
         try {
             List<KnightsTourModel.Move> moves = solveWarnsdorff(boardSize, startX, startY);
@@ -94,15 +312,15 @@ public class KnightsTourService {
             result.setMoveCount(moves.size());
             result.setMoves(moves);
             result.setMessage("Warnsdorff completed the full tour successfully.");
-            return result;
         } catch (Exception e) {
             result.setStatus("ERROR");
             result.setExecutionTimeMs(elapsedMs(startNano));
             result.setMoveCount(0);
             result.setMoves(new ArrayList<>());
             result.setMessage(e.getMessage());
-            return result;
         }
+
+        return result;
     }
 
     private List<KnightsTourModel.Move> solveWarnsdorff(int boardSize, int startX, int startY) {
@@ -139,7 +357,7 @@ public class KnightsTourService {
             int nextX = x + DX[i];
             int nextY = y + DY[i];
 
-            if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
+            if (isValidZeroBased(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
                 int onwardMoves = countOnwardMoves(board, nextX, nextY, boardSize);
                 candidates.add(new int[]{nextX, nextY, onwardMoves});
             }
@@ -151,11 +369,11 @@ public class KnightsTourService {
 
         candidates.sort(Comparator.comparingInt(a -> a[2]));
 
-        int smallestOnwardCount = candidates.get(0)[2];
+        int minimumOnwardMoves = candidates.get(0)[2];
         List<int[]> bestCandidates = new ArrayList<>();
 
         for (int[] candidate : candidates) {
-            if (candidate[2] == smallestOnwardCount) {
+            if (candidate[2] == minimumOnwardMoves) {
                 bestCandidates.add(candidate);
             } else {
                 break;
@@ -172,12 +390,230 @@ public class KnightsTourService {
             int nextX = x + DX[i];
             int nextY = y + DY[i];
 
-            if (isValid(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
+            if (isValidZeroBased(nextX, nextY, boardSize) && board[nextX][nextY] == -1) {
                 count++;
             }
         }
 
         return count;
+    }
+
+    private StructuralValidationResult validateStructure(
+            List<KnightsTourModel.Move> submittedMoves,
+            int boardSize,
+            int expectedStartX,
+            int expectedStartY,
+            int expectedMoveCount
+    ) {
+        if (submittedMoves.isEmpty()) {
+            return StructuralValidationResult.invalid("EMPTY_PATH");
+        }
+
+        Set<String> visitedCells = new HashSet<>();
+
+        for (int i = 0; i < submittedMoves.size(); i++) {
+            KnightsTourModel.Move current = submittedMoves.get(i);
+
+            int expectedStepNo = i + 1;
+            if (current.getStepNo() != expectedStepNo) {
+                return StructuralValidationResult.invalid("INVALID_STEP_SEQUENCE");
+            }
+
+            if (!isWithinBoard(current.getX(), current.getY(), boardSize)) {
+                return StructuralValidationResult.invalid("OUT_OF_BOUNDS");
+            }
+
+            String cellKey = current.getX() + "_" + current.getY();
+            if (!visitedCells.add(cellKey)) {
+                return StructuralValidationResult.invalid("DUPLICATE_CELL");
+            }
+
+            if (i == 0) {
+                if (current.getX() != expectedStartX || current.getY() != expectedStartY) {
+                    return StructuralValidationResult.invalid("WRONG_START_POSITION");
+                }
+            } else {
+                KnightsTourModel.Move previous = submittedMoves.get(i - 1);
+                if (!isKnightMove(previous.getX(), previous.getY(), current.getX(), current.getY())) {
+                    return StructuralValidationResult.invalid("ILLEGAL_MOVE_SEQUENCE");
+                }
+            }
+        }
+
+        boolean complete = submittedMoves.size() == expectedMoveCount;
+
+        if (!complete) {
+            KnightsTourModel.Move lastMove = submittedMoves.get(submittedMoves.size() - 1);
+            boolean deadEnd = hasNoLegalUnvisitedMove(lastMove, visitedCells, boardSize);
+
+            if (deadEnd) {
+                return StructuralValidationResult.deadEnd("DEAD_END_BEFORE_COMPLETION");
+            }
+
+            return StructuralValidationResult.incomplete("INCOMPLETE_TOUR");
+        }
+
+        return StructuralValidationResult.validComplete();
+    }
+
+    private StructuralValidationResult validateStructureForHint(
+            List<KnightsTourModel.Move> submittedMoves,
+            int boardSize,
+            int expectedStartX,
+            int expectedStartY
+    ) {
+        if (submittedMoves.isEmpty()) {
+            return StructuralValidationResult.invalid("EMPTY_PATH");
+        }
+
+        Set<String> visitedCells = new HashSet<>();
+
+        for (int i = 0; i < submittedMoves.size(); i++) {
+            KnightsTourModel.Move current = submittedMoves.get(i);
+
+            int expectedStepNo = i + 1;
+            if (current.getStepNo() != expectedStepNo) {
+                return StructuralValidationResult.invalid("INVALID_STEP_SEQUENCE");
+            }
+
+            if (!isWithinBoard(current.getX(), current.getY(), boardSize)) {
+                return StructuralValidationResult.invalid("OUT_OF_BOUNDS");
+            }
+
+            String cellKey = current.getX() + "_" + current.getY();
+            if (!visitedCells.add(cellKey)) {
+                return StructuralValidationResult.invalid("DUPLICATE_CELL");
+            }
+
+            if (i == 0) {
+                if (current.getX() != expectedStartX || current.getY() != expectedStartY) {
+                    return StructuralValidationResult.invalid("WRONG_START_POSITION");
+                }
+            } else {
+                KnightsTourModel.Move previous = submittedMoves.get(i - 1);
+                if (!isKnightMove(previous.getX(), previous.getY(), current.getX(), current.getY())) {
+                    return StructuralValidationResult.invalid("ILLEGAL_MOVE_SEQUENCE");
+                }
+            }
+        }
+
+        return StructuralValidationResult.validPartial();
+    }
+
+    private List<KnightsTourModel.Move> findLegalUnvisitedNextMoves(
+            KnightsTourModel.Move lastMove,
+            int nextStepNo,
+            Set<String> visitedCells,
+            int boardSize
+    ) {
+        List<KnightsTourModel.Move> hintMoves = new ArrayList<>();
+
+        for (int i = 0; i < 8; i++) {
+            int nextX = lastMove.getX() + DX[i];
+            int nextY = lastMove.getY() + DY[i];
+
+            if (isWithinBoard(nextX, nextY, boardSize)) {
+                String cellKey = nextX + "_" + nextY;
+                if (!visitedCells.contains(cellKey)) {
+                    hintMoves.add(new KnightsTourModel.Move(nextStepNo, nextX, nextY));
+                }
+            }
+        }
+
+        return hintMoves;
+    }
+
+    private Set<String> buildVisitedSet(List<KnightsTourModel.Move> moves) {
+        Set<String> visited = new HashSet<>();
+        for (KnightsTourModel.Move move : moves) {
+            visited.add(move.getX() + "_" + move.getY());
+        }
+        return visited;
+    }
+
+    private boolean hasNoLegalUnvisitedMove(
+            KnightsTourModel.Move lastMove,
+            Set<String> visitedCells,
+            int boardSize
+    ) {
+        for (int i = 0; i < 8; i++) {
+            int nextX = lastMove.getX() + DX[i];
+            int nextY = lastMove.getY() + DY[i];
+
+            if (isWithinBoard(nextX, nextY, boardSize)) {
+                String key = nextX + "_" + nextY;
+                if (!visitedCells.contains(key)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean isKnightMove(int fromX, int fromY, int toX, int toY) {
+        int dx = Math.abs(toX - fromX);
+        int dy = Math.abs(toY - fromY);
+        return (dx == 2 && dy == 1) || (dx == 1 && dy == 2);
+    }
+
+    // Checks if the given coordinates are within the bounds of the board (1-based indexing).
+    private boolean isWithinBoard(int x, int y, int boardSize) {
+        return x >= 1 && x <= boardSize && y >= 1 && y <= boardSize;
+    }
+
+    private List<KnightsTourModel.Move> normalizeMovesByStep(List<KnightsTourModel.Move> moves) {
+        List<KnightsTourModel.Move> normalized = new ArrayList<>(moves);
+        normalized.sort(Comparator.comparingInt(KnightsTourModel.Move::getStepNo));
+        return normalized;
+    }
+
+    //check if the submitted moves are exactly the same as the correct moves in terms of step number and coordinates
+    private boolean areMovesExactlyEqual(
+            List<KnightsTourModel.Move> correctMoves,
+            List<KnightsTourModel.Move> submittedMoves
+    ) {
+        if (correctMoves.size() != submittedMoves.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < correctMoves.size(); i++) {
+            KnightsTourModel.Move correct = correctMoves.get(i);
+            KnightsTourModel.Move submitted = submittedMoves.get(i);
+
+            if (correct.getStepNo() != submitted.getStepNo()
+                    || correct.getX() != submitted.getX()
+                    || correct.getY() != submitted.getY()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Provides user-friendly messages for different structural validation failures.
+    private String buildStructuralFailureMessage(String reasonCode) {
+        return switch (reasonCode) {
+            case "WRONG_START_POSITION" -> "Submitted path does not start from the required starting square.";
+            case "OUT_OF_BOUNDS" -> "Submitted path contains coordinates outside the board.";
+            case "DUPLICATE_CELL" -> "Submitted path visits the same square more than once.";
+            case "INVALID_STEP_SEQUENCE" -> "Submitted path contains invalid or missing step numbers.";
+            case "ILLEGAL_MOVE_SEQUENCE" -> "Submitted path contains a move that is not a legal knight move.";
+            case "DEAD_END_BEFORE_COMPLETION" -> "Player reached a dead end before completing the full tour.";
+            case "INCOMPLETE_TOUR" -> "Submitted path is incomplete and the tour was not finished.";
+            case "EMPTY_PATH" -> "No moves were submitted.";
+            default -> "Submitted path failed structural validation.";
+        };
+    }
+
+    private String buildResponseSummary(
+            int submittedMoveCount,
+            boolean isCorrect,
+            String reasonCode,
+            String validationSource
+    ) {
+        String resultPrefix = isCorrect ? "CORRECT" : "WRONG";
+        String source = validationSource == null ? "NONE" : validationSource;
+        return resultPrefix + "_" + submittedMoveCount + "_MOVES_" + reasonCode + "_" + source;
     }
 
     private int[][] createEmptyBoard(int boardSize) {
@@ -192,7 +628,7 @@ public class KnightsTourService {
         return board;
     }
 
-    private boolean isValid(int x, int y, int boardSize) {
+    private boolean isValidZeroBased(int x, int y, int boardSize) {
         return x >= 0 && x < boardSize && y >= 0 && y < boardSize;
     }
 
@@ -200,14 +636,15 @@ public class KnightsTourService {
         return (System.nanoTime() - startNano) / 1_000_000.0;
     }
 
+    /*Algorithm execution results in the database with a normalized status of
+    either "SUCCESS" or "ERROR" to simplify querying and reporting,
+    even though the internal representation may have more detailed status values.
+     */
     private String normalizeStatusForDb(String status) {
-        if ("SUCCESS".equals(status)) {
-            return "SUCCESS";
-        }
-        return "ERROR";
+        return "SUCCESS".equals(status) ? "SUCCESS" : "ERROR";
     }
 
-    private void validateRequest(KnightsTourModel request) {
+    private void validateStartRequest(KnightsTourModel.StartRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request cannot be null.");
         }
@@ -218,6 +655,161 @@ public class KnightsTourService {
 
         if (request.getBoardSize() == null || (request.getBoardSize() != 8 && request.getBoardSize() != 16)) {
             throw new IllegalArgumentException("Board size must be 8 or 16.");
+        }
+    }
+
+    private void validateAnswerRequest(KnightsTourModel.AnswerRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null.");
+        }
+
+        if (request.getSessionId() == null || request.getSessionId() <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (request.getMoves() == null || request.getMoves().isEmpty()) {
+            throw new IllegalArgumentException("Move sequence is required.");
+        }
+
+        Set<Integer> seenSteps = new HashSet<>();
+        Set<String> seenCells = new HashSet<>();
+
+        for (KnightsTourModel.Move move : request.getMoves()) {
+            if (move == null) {
+                throw new IllegalArgumentException("Move list contains null entry.");
+            }
+
+            if (move.getStepNo() <= 0) {
+                throw new IllegalArgumentException("Each move must have a positive step number.");
+            }
+
+            if (move.getX() <= 0 || move.getY() <= 0) {
+                throw new IllegalArgumentException("Coordinates must be positive.");
+            }
+
+            if (!seenSteps.add(move.getStepNo())) {
+                throw new IllegalArgumentException("Duplicate step number found: " + move.getStepNo());
+            }
+
+            String cellKey = move.getX() + "_" + move.getY();
+            if (!seenCells.add(cellKey)) {
+                throw new IllegalArgumentException(
+                        "Duplicate board cell found in response: (" + move.getX() + "," + move.getY() + ")"
+                );
+            }
+        }
+    }
+
+    private void validateHintRequest(KnightsTourModel.HintRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null.");
+        }
+
+        if (request.getSessionId() == null || request.getSessionId() <= 0) {
+            throw new IllegalArgumentException("Valid sessionId is required.");
+        }
+
+        if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
+            throw new IllegalArgumentException("Valid playerId is required.");
+        }
+
+        if (request.getMoves() == null || request.getMoves().isEmpty()) {
+            throw new IllegalArgumentException("At least one move is required to request a hint.");
+        }
+
+        Set<Integer> seenSteps = new HashSet<>();
+        Set<String> seenCells = new HashSet<>();
+
+        for (KnightsTourModel.Move move : request.getMoves()) {
+            if (move == null) {
+                throw new IllegalArgumentException("Move list contains null entry.");
+            }
+
+            if (move.getStepNo() <= 0) {
+                throw new IllegalArgumentException("Each move must have a positive step number.");
+            }
+
+            if (move.getX() <= 0 || move.getY() <= 0) {
+                throw new IllegalArgumentException("Coordinates must be positive.");
+            }
+
+            if (!seenSteps.add(move.getStepNo())) {
+                throw new IllegalArgumentException("Duplicate step number found: " + move.getStepNo());
+            }
+
+            String cellKey = move.getX() + "_" + move.getY();
+            if (!seenCells.add(cellKey)) {
+                throw new IllegalArgumentException(
+                        "Duplicate board cell found in hint request: (" + move.getX() + "," + move.getY() + ")"
+                );
+            }
+        }
+    }
+
+    //not in model class because it's only used internally in the service and not exposed to the client
+    private static class GeneratedRound {
+        private final int startX;
+        private final int startY;
+        private final KnightsTourModel.AlgorithmResult result;
+
+        public GeneratedRound(int startX, int startY, KnightsTourModel.AlgorithmResult result) {
+            this.startX = startX;
+            this.startY = startY;
+            this.result = result;
+        }
+    }
+
+    private static class StructuralValidationResult {
+        private final boolean valid;
+        private final boolean complete;
+        private final boolean deadEnd;
+        private final String reasonCode;
+
+        private StructuralValidationResult(boolean valid, boolean complete, boolean deadEnd, String reasonCode) {
+            this.valid = valid;
+            this.complete = complete;
+            this.deadEnd = deadEnd;
+            this.reasonCode = reasonCode;
+        }
+
+        public static StructuralValidationResult validComplete() {
+            return new StructuralValidationResult(true, true, false, "VALID_STRUCTURE");
+        }
+
+        public static StructuralValidationResult validPartial() {
+            return new StructuralValidationResult(true, false, false, "VALID_PARTIAL_STRUCTURE");
+        }
+
+        public static StructuralValidationResult invalid(String reasonCode) {
+            return new StructuralValidationResult(false, false, false, reasonCode);
+        }
+
+        public static StructuralValidationResult deadEnd(String reasonCode) {
+            return new StructuralValidationResult(false, false, true, reasonCode);
+        }
+
+        public static StructuralValidationResult incomplete(String reasonCode) {
+            return new StructuralValidationResult(false, false, false, reasonCode);
+        }
+
+        public boolean isValid() {
+            return valid;
+        }
+
+        public boolean isComplete() {
+            return complete;
+        }
+
+        public boolean isDeadEnd() {
+            return deadEnd;
+        }
+
+        public String getReasonCode() {
+            return reasonCode;
         }
     }
 }
