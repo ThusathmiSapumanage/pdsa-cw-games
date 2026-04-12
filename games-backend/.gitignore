@@ -48,6 +48,7 @@ build/
 # Environment
 .env
 .env.*
+.env.local
 !.env.example
 
 # Logs
