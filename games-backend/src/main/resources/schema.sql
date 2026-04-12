@@ -7,7 +7,11 @@ USE algocore_db;
 -- Stores all players who run game sessions.
 CREATE TABLE IF NOT EXISTS Player (
     Player_Id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    Player_Name VARCHAR(45) NOT NULL
+    Player_Name VARCHAR(45) NOT NULL,
+    Player_Email VARCHAR(45) NOT NULL UNIQUE,
+    Player_Password VARCHAR(255) NOT NULL,
+    CONSTRAINT chk_email_min_length CHECK (CHAR_LENGTH(Player_Email) >= 3),
+    CONSTRAINT chk_password_min_length CHECK (CHAR_LENGTH(Player_Password) >= 6)
 );
 
 -- Master list of supported games.
@@ -49,7 +53,7 @@ CREATE TABLE IF NOT EXISTS Minimum_Cost_Game (
     Session_Id INT UNSIGNED PRIMARY KEY,
     N_Value INT UNSIGNED NOT NULL,
     Minimum_Total_Cost INT NOT NULL,
-    CONSTRAINT chk_min_cost_n_range CHECK (N_Value BETWEEN 50 AND 100),
+    CONSTRAINT chk_min_cost_n_range CHECK (N_Value BETWEEN 5 AND 100),
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE
 );
 
@@ -159,4 +163,15 @@ CREATE TABLE IF NOT EXISTS Algorithm_Execute (
     PRIMARY KEY (Session_Id, Algorithm_Id),
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE,
     FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
+);
+
+-- Record user input as the users path.
+CREATE TABLE IF NOT EXISTS Knight_Tour_Response_Move (
+    Response_Id INT UNSIGNED NOT NULL,
+    Step_No SMALLINT UNSIGNED NOT NULL,
+    X_Value TINYINT UNSIGNED NOT NULL,
+    Y_Value TINYINT UNSIGNED NOT NULL,
+    PRIMARY KEY (Response_Id, Step_No),
+    CONSTRAINT fk_ktrm_response
+        FOREIGN KEY (Response_Id) REFERENCES Response(Response_Id) ON DELETE CASCADE
 );

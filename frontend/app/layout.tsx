@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Syne, Outfit } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "../components/auth/AuthProvider";
 
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -20,13 +21,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${syne.variable} ${outfit.variable} font-sans antialiased bg-[#050505] text-white selection:bg-white selection:text-black overflow-x-hidden`}>
+      <body
+        className={`${syne.variable} ${outfit.variable} font-sans antialiased bg-[#050505] text-white selection:bg-white selection:text-black overflow-x-hidden`}
+      >
         {/* Global Noise Texture Overlay */}
         <div className="bg-noise" />
-        
-        <main className="relative z-10 min-h-screen">
-          {children}
-        </main>
+
+        <AuthProvider>
+          <main className="relative z-10 min-h-screen">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );
