@@ -17,6 +17,12 @@ public class MinCostController {
         this.minCostService = minCostService;
     }
 
+    // Returns statistics of the last 10 games played.
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistory() {
+        return ResponseEntity.ok(minCostService.getHistory());
+    }
+
     // Starts one min-cost game round.
     // Accepts input JSON and returns matrix + algorithm results.
     @PostMapping("/start")
