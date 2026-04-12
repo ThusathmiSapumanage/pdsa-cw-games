@@ -4,6 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../components/auth/AuthProvider";
+import {
+  loginPlayer,
+  registerPlayer,
+} from "../../services/api";
 
 const tabs = [
   { id: "login", label: "Login" },
@@ -12,38 +16,10 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
-type ApiErrorPayload = {
-  detail?: string;
-};
-
-async function extractApiErrorMessage(response: Response): Promise<string> {
-  try {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("json")) {
-      const payload = (await response.json()) as ApiErrorPayload;
-      if (payload.detail) {
-        return payload.detail;
-      }
-      return `Request failed with status ${response.status}`;
-    }
-
-    const text = (await response.text()).trim();
-    if (text) {
-      return `Request failed with status ${response.status}`;
-    }
-  } catch {
-    // Fall through to generic fallback.
-  }
-
-  return `Request failed with status ${response.status}`;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, login, isReady } = useAuth();
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
   const [activeTab, setActiveTab] = useState<TabId>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,27 +67,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/players/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
-
-      if (!response.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(response);
-        setError(apiErrorMessage);
-        return;
-      }
-
-      const data = (await response.json()) as {
-        tokenType?: string;
-        accessToken?: string;
-      };
+      const data = await loginPlayer(email, password);
 
       if (!data.accessToken) {
         setError("Sign-in failed. Invalid server response.");
@@ -120,8 +76,12 @@ export default function LoginPage() {
 
       login(email, data.accessToken);
       router.replace(nextPath);
-    } catch {
-      setError("Unable to reach server. Please try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to reach server. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -142,46 +102,19 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const registerResponse = await fetch(`${apiBaseUrl}/api/players`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerName: fullName,
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
+      await registerPlayer(fullName, email, password);
 
-      if (!registerResponse.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(registerResponse);
-        setError(apiErrorMessage);
-        return;
-      }
-
-      const loginResponse = await fetch(`${apiBaseUrl}/api/players/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
-
-      if (!loginResponse.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(loginResponse);
+      let loginData;
+      try {
+        loginData = await loginPlayer(email, password);
+      } catch (loginErr) {
+        const loginMessage =
+          loginErr instanceof Error ? loginErr.message : "Unknown error";
         setError(
-          `Registration succeeded, but automatic login failed: ${apiErrorMessage}`,
+          `Registration succeeded, but automatic login failed: ${loginMessage}`,
         );
         return;
       }
-
-      const loginData = (await loginResponse.json()) as {
-        accessToken?: string;
-      };
 
       if (!loginData.accessToken) {
         setError("Registration succeeded, but login token was missing.");
@@ -190,8 +123,12 @@ export default function LoginPage() {
 
       login(email, loginData.accessToken);
       router.replace(nextPath);
-    } catch {
-      setError("Unable to reach server. Please try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to reach server. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }

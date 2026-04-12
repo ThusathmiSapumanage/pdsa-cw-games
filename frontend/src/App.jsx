@@ -1,7 +1,7 @@
-import MinimumCostGame from './games/mincost/MinimumCostGame'
+import MinCostGame from './games/mincost/MinCostGame'
 
 function App() {
-  return <MinimumCostGame />
+  return <MinCostGame />
 }
 
 export default App
