@@ -4,6 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../components/auth/AuthProvider";
+import {
+  loginPlayer,
+  registerPlayer,
+} from "../../services/api";
 
 const tabs = [
   { id: "login", label: "Login" },
@@ -12,37 +16,10 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
-type ApiErrorPayload = {
-  detail?: string;
-};
-
-async function extractApiErrorMessage(response: Response): Promise<string> {
-  try {
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("json")) {
-      const payload = (await response.json()) as ApiErrorPayload;
-      if (payload.detail) {
-        return payload.detail;
-      }
-      return `Request failed with status ${response.status}`;
-    }
-
-    const text = (await response.text()).trim();
-    if (text) {
-      return `Request failed with status ${response.status}`;
-    }
-  } catch {
-    // Fall through to generic fallback.
-  }
-
-  return `Request failed with status ${response.status}`;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, login, isReady } = useAuth();
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
   const [activeTab, setActiveTab] = useState<TabId>("login");
   const [email, setEmail] = useState("");
@@ -54,6 +31,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLoginReady = email.trim().length > 0 && password.trim().length > 0;
+
   const isRegisterReady =
     fullName.trim().length > 0 &&
     email.trim().length > 0 &&
@@ -83,35 +61,17 @@ export default function LoginPage() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+
     if (!email || !password) {
       setError("Please provide your email and password.");
       return;
     }
+
     setError(null);
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/players/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
-
-      if (!response.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(response);
-        setError(apiErrorMessage);
-        return;
-      }
-
-      const data = (await response.json()) as {
-        tokenType?: string;
-        accessToken?: string;
-      };
+      const data = await loginPlayer(email, password);
 
       if (!data.accessToken) {
         setError("Sign-in failed. Invalid server response.");
@@ -120,8 +80,13 @@ export default function LoginPage() {
 
       login(email, data.accessToken);
       router.replace(nextPath);
-    } catch {
-      setError("Unable to reach server. Please try again.");
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to reach server. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -129,10 +94,12 @@ export default function LoginPage() {
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
+
     if (!fullName || !email || !password || !confirmPassword) {
       setError("Please complete all registration fields.");
       return;
     }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -142,46 +109,21 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const registerResponse = await fetch(`${apiBaseUrl}/api/players`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerName: fullName,
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
+      await registerPlayer(fullName, email, password);
 
-      if (!registerResponse.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(registerResponse);
-        setError(apiErrorMessage);
-        return;
-      }
+      let loginData;
 
-      const loginResponse = await fetch(`${apiBaseUrl}/api/players/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerEmail: email,
-          playerPassword: password,
-        }),
-      });
+      try {
+        loginData = await loginPlayer(email, password);
+      } catch (loginErr) {
+        const loginMessage =
+          loginErr instanceof Error ? loginErr.message : "Unknown error";
 
-      if (!loginResponse.ok) {
-        const apiErrorMessage = await extractApiErrorMessage(loginResponse);
         setError(
-          `Registration succeeded, but automatic login failed: ${apiErrorMessage}`,
+          `Registration succeeded, but automatic login failed: ${loginMessage}`
         );
         return;
       }
-
-      const loginData = (await loginResponse.json()) as {
-        accessToken?: string;
-      };
 
       if (!loginData.accessToken) {
         setError("Registration succeeded, but login token was missing.");
@@ -190,8 +132,13 @@ export default function LoginPage() {
 
       login(email, loginData.accessToken);
       router.replace(nextPath);
-    } catch {
-      setError("Unable to reach server. Please try again.");
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to reach server. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -199,196 +146,144 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center px-6 py-24 relative">
+
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.18),transparent_55%)]" />
 
       <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.12fr_1fr] lg:min-h-[620px] gap-10 bg-[#070707] border border-white/5 rounded-2xl overflow-hidden">
+
+        {/* LEFT PANEL */}
         <div className="p-10 lg:p-12 h-full flex flex-col border-b lg:border-b-0 lg:border-r border-white/5">
+
           <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-blue-500 mb-6">
             User Access
           </p>
-          <h1 className="text-[clamp(1.7rem,3.6vw,3.1rem)] leading-[0.95] font-black tracking-normal uppercase mb-4 max-w-full overflow-hidden">
+
+          <h1 className="text-[clamp(1.7rem,3.6vw,3.1rem)] leading-[0.95] font-black uppercase mb-4">
             ALGOCORE
           </h1>
+
           <p className="text-[11px] font-mono uppercase tracking-[0.35em] text-white/40 mb-6">
             Account Access
           </p>
-          <p className="text-sm text-white/50 leading-relaxed">
+
+          <p className="text-sm text-white/50">
             Secure access to algorithm simulations. Login or register to continue.
           </p>
 
-          <div className="mt-10 flex items-center gap-4">
+          <div className="mt-10 flex gap-4">
+
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabChange(tab.id)}
-                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors border ${
+                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                   activeTab === tab.id
                     ? "bg-blue-600 text-white border-blue-500"
-                    : "text-white/60 border-white/10 hover:text-white hover:border-white/30"
+                    : "text-white/60 border-white/10 hover:text-white"
                 }`}
               >
                 {tab.label}
               </button>
             ))}
+
           </div>
 
           {error && (
-            <div className="mt-6 border border-red-500/30 bg-red-500/10 text-red-300 text-xs uppercase tracking-widest font-bold px-4 py-3 rounded-lg">
+            <div className="mt-6 border border-red-500/30 bg-red-500/10 text-red-300 text-xs px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
 
-          <div className="mt-auto pt-10 text-[10px] font-mono uppercase tracking-[0.3em] text-white/30">
+          <div className="mt-auto pt-10 text-[10px] text-white/30">
             Back to{" "}
-            <Link
-              href="/"
-              className="text-blue-500 hover:text-white transition-colors"
-            >
+            <Link href="/" className="text-blue-500 hover:text-white">
               dashboard
             </Link>
           </div>
         </div>
 
-        <div className="p-10 lg:p-12 h-full flex flex-col">
-          {activeTab === "login" ? (
-            <form noValidate onSubmit={handleLogin} className="flex flex-col gap-6 flex-1 min-h-[420px]">
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@algocore.com"
-                  className="mt-2 w-full bg-transparent border-b border-white/10 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                  disabled={isSubmitting}
-                />
-              </div>
+        {/* RIGHT PANEL */}
+        <div className="p-10 lg:p-12 flex flex-col">
 
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Password
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-transparent border-b border-white/10 py-3 pr-12 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                    disabled={isSubmitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    disabled={isSubmitting}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors disabled:opacity-40"
-                  >
-                    {showPassword ? "Hide" : "View"}
-                  </button>
-                </div>
-              </div>
+          {activeTab === "login" ? (
+
+            <form onSubmit={handleLogin} className="flex flex-col gap-6 flex-1">
+
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
+
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
 
               <button
                 type="submit"
                 disabled={isSubmitting || !isLoginReady}
-                className="mt-auto bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                className="mt-auto bg-white text-black py-3 rounded font-bold"
               >
                 {isSubmitting ? "Logging In..." : "Login"}
               </button>
+
             </form>
+
           ) : (
-            <form noValidate onSubmit={handleRegister} className="flex flex-col gap-6 flex-1 min-h-[420px]">
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Player Name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Algorithm Explorer"
-                  className="mt-2 w-full bg-transparent border-b border-white/10 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                  disabled={isSubmitting}
-                />
-              </div>
 
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@algocore.com"
-                  className="mt-2 w-full bg-transparent border-b border-white/10 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                  disabled={isSubmitting}
-                />
-              </div>
+            <form onSubmit={handleRegister} className="flex flex-col gap-6 flex-1">
 
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Password
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Create a password"
-                    className="w-full bg-transparent border-b border-white/10 py-3 pr-12 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                    disabled={isSubmitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    disabled={isSubmitting}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors disabled:opacity-40"
-                  >
-                    {showPassword ? "Hide" : "View"}
-                  </button>
-                </div>
-                <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
-                  Password must be at least 6 characters.
-                </p>
-              </div>
+              <input
+                type="text"
+                placeholder="Player Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
 
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                  Confirm Password
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    placeholder="Repeat password"
-                    className="w-full bg-transparent border-b border-white/10 py-3 pr-12 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500"
-                    disabled={isSubmitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    disabled={isSubmitting}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors disabled:opacity-40"
-                  >
-                    {showPassword ? "Hide" : "View"}
-                  </button>
-                </div>
-              </div>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
+
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
+
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="border-b border-white/10 py-3 bg-transparent"
+              />
 
               <button
                 type="submit"
                 disabled={isSubmitting || !isRegisterReady}
-                className="mt-auto bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                className="mt-auto bg-white text-black py-3 rounded font-bold"
               >
                 {isSubmitting ? "Registering..." : "Register"}
               </button>
+
             </form>
+
           )}
+
         </div>
       </div>
     </div>
