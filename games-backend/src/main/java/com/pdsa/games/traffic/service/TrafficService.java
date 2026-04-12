@@ -154,7 +154,7 @@ public class TrafficService {
 
         return new AnswerSubmissionResult(
             isCorrect,
-            isCorrect ? correct : null,
+            correct,
             getPlayerName(session.getPlayerId())
         );
     }

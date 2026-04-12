@@ -60,6 +60,7 @@ export default function TrafficSimulationPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (!isReady || !accessToken || sessionId) {
@@ -151,6 +152,7 @@ export default function TrafficSimulationPage() {
     setSubmission(null);
     setAnswer("");
     setError("");
+    setIsLocked(false);
 
     try {
       const generated = await fetch(`${API_BASE_URL}/api/traffic-sim/generate/${activeSessionId}`, {
@@ -197,7 +199,12 @@ export default function TrafficSimulationPage() {
       );
       const data = await readJson(res, "Submit failed");
       setSubmission(data);
-      setStatus(data.correct ? "Correct maximum flow identified." : "Incorrect answer. Trace bottlenecks and retry.");
+
+      if (data.correct) {
+        setIsLocked(true);
+      }
+
+      setStatus(data.correct ? "Correct maximum flow identified." : `Incorrect answer. Correct max flow is ${data.correctAnswer}.`);
     } catch (e: any) {
       setError(e.message);
     } finally {

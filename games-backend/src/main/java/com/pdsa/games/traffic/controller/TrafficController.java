@@ -75,9 +75,7 @@ public class TrafficController {
         Map<String, Object> response = new HashMap<>();
         response.put("correct", result.isCorrect());
         response.put("playerName", result.getPlayerName());
-        if (result.isCorrect()) {
-            response.put("correctAnswer", result.getCorrectAnswer());
-        }
+        response.put("correctAnswer", result.getCorrectAnswer());
 
         return ResponseEntity.ok(response);
     }
