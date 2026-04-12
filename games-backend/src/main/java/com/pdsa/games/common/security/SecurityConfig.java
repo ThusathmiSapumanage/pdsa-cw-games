@@ -1,6 +1,7 @@
 package com.pdsa.games.common.security;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -36,19 +37,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        return http
+        http
                 .csrf(csrf -> csrf.disable())
+
+                // Enable CORS
                 .cors(Customizer.withDefaults())
 
+                // No session (JWT only)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // Swagger
+                        // Allow Swagger
                         .requestMatchers("/", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
 
-                        // CORS preflight
+                        // Allow CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Register
@@ -57,13 +61,14 @@ public class SecurityConfig {
                         // Login
                         .requestMatchers(HttpMethod.POST, "/api/players/login").permitAll()
 
-                        // Everything else requires JWT
+                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
 
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // JWT filter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-                .build();
+        return http.build();
     }
 
     @Bean
@@ -72,12 +77,21 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(Arrays.asList(corsAllowedOrigins));
-        configuration.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization","Content-Type"));
-        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+
+        configuration.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+        ));
+
+        // Allow all headers (important for JWT)
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // Allow Authorization header to be returned
+        configuration.setExposedHeaders(List.of("Authorization"));
+
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
