@@ -51,6 +51,8 @@ async function readJson(response: Response, fallback: string) {
 export default function TrafficSimulationPage() {
   const { accessToken, isReady } = useAuth();
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [gameId, setGameId] = useState<number | null>(null);
+  const [playerId, setPlayerId] = useState<number | null>(null);
   const [roads, setRoads] = useState<any[]>([]);
   const [answer, setAnswer] = useState("");
   const [dinicRun, setDinicRun] = useState<any>(null);
@@ -63,9 +65,7 @@ export default function TrafficSimulationPage() {
   const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
-    if (!isReady || !accessToken || sessionId) {
-      return;
-    }
+    if (!isReady || !accessToken || sessionId) return;
     initializeSession();
   }, [isReady, accessToken, sessionId]);
 
@@ -76,46 +76,56 @@ export default function TrafficSimulationPage() {
       const email = decodeEmail(token);
       if (!email) throw new Error("Invalid login token.");
 
-      const gameId = await resolveTrafficGameId(token);
+      const resolvedGameId = await resolveTrafficGameId(token);
+      setGameId(resolvedGameId);
 
       const playersRes = await fetch(`${API_BASE_URL}/api/players`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const players = await readJson(playersRes, "Unable to load player profile");
       const currentPlayer = players.find((p: any) => p.playerEmail === email);
+
       if (!currentPlayer) throw new Error("Player account not found.");
 
-      const sessionRes = await fetch(`${API_BASE_URL}/api/game-sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ gameId, playerId: currentPlayer.playerId }),
-      });
+      setPlayerId(currentPlayer.playerId);
 
-      const session = await readJson(sessionRes, "Unable to create game session");
-      setSessionId(session.sessionId);
-      generateRound(session.sessionId);
+      const newSessionId = await createNewSession(resolvedGameId, currentPlayer.playerId, token);
+      setSessionId(newSessionId);
+
+      generateRound(newSessionId);
     } catch (e: any) {
       setError(e.message);
       setStatus("Session initialization failed.");
     }
   }
 
+  async function createNewSession(gameId: number, playerId: number, token: string) {
+    const sessionRes = await fetch(`${API_BASE_URL}/api/game-sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ gameId, playerId }),
+    });
+
+    const session = await readJson(sessionRes, "Unable to create game session");
+    return session.sessionId as number;
+  }
+
   async function resolveTrafficGameId(token: string) {
     const gamesRes = await fetch(`${API_BASE_URL}/api/games`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+
     const games = await readJson(gamesRes, "Unable to load games");
 
     const existingGame = Array.isArray(games)
       ? games.find((game: any) => game?.gameName === GAME_NAME)
       : null;
 
-    if (existingGame?.gameId) {
-      return existingGame.gameId as number;
-    }
+    if (existingGame?.gameId) return existingGame.gameId as number;
 
     const createRes = await fetch(`${API_BASE_URL}/api/games`, {
       method: "POST",
@@ -125,11 +135,10 @@ export default function TrafficSimulationPage() {
       },
       body: JSON.stringify({ gameName: GAME_NAME }),
     });
+
     const createdGame = await readJson(createRes, "Unable to register traffic game");
 
-    if (!createdGame?.gameId) {
-      throw new Error("Traffic game setup failed.");
-    }
+    if (!createdGame?.gameId) throw new Error("Traffic game setup failed.");
 
     return createdGame.gameId as number;
   }
@@ -144,9 +153,11 @@ export default function TrafficSimulationPage() {
     return vals.length ? Math.min(...vals) + 1 : 0;
   }, [roadMap]);
 
-  async function generateRound(activeSessionId = sessionId) {
+  async function generateRound(activeSessionId?: number) {
     const token = accessToken;
-    if (!activeSessionId || !token) return;
+    const sid = activeSessionId ?? sessionId;
+
+    if (!sid || !token) return;
 
     setLoading(true);
     setSubmission(null);
@@ -155,17 +166,18 @@ export default function TrafficSimulationPage() {
     setIsLocked(false);
 
     try {
-      const generated = await fetch(`${API_BASE_URL}/api/traffic-sim/generate/${activeSessionId}`, {
+      const generated = await fetch(`${API_BASE_URL}/api/traffic-sim/generate/${sid}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setRoads(await readJson(generated, "Unable to generate network"));
 
       const [dRes, fRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/traffic-sim/dinic/${activeSessionId}`, {
+        fetch(`${API_BASE_URL}/api/traffic-sim/dinic/${sid}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE_URL}/api/traffic-sim/ford/${activeSessionId}`, {
+        fetch(`${API_BASE_URL}/api/traffic-sim/ford/${sid}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -180,6 +192,20 @@ export default function TrafficSimulationPage() {
     }
   }
 
+  async function handleGenerateAndRun() {
+    try {
+      const token = accessToken;
+      if (!token || !gameId || !playerId) return;
+
+      const newSessionId = await createNewSession(gameId, playerId, token);
+      setSessionId(newSessionId);
+
+      await generateRound(newSessionId);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
   async function submitAnswer() {
     const token = accessToken;
     if (!sessionId || !token) return;
@@ -189,6 +215,7 @@ export default function TrafficSimulationPage() {
     }
 
     setSubmitting(true);
+
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/traffic-sim/submit/${sessionId}?answer=${encodeURIComponent(answer)}`,
@@ -197,14 +224,17 @@ export default function TrafficSimulationPage() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+
       const data = await readJson(res, "Submit failed");
       setSubmission(data);
 
-      if (data.correct) {
-        setIsLocked(true);
-      }
+      if (data.correct) setIsLocked(true);
 
-      setStatus(data.correct ? "Correct maximum flow identified." : `Incorrect answer. Correct max flow is ${data.correctAnswer}.`);
+      setStatus(
+        data.correct
+          ? "Correct maximum flow identified."
+          : `Incorrect answer. Correct max flow is ${data.correctAnswer}.`
+      );
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -228,7 +258,7 @@ export default function TrafficSimulationPage() {
       </div>
 
       <button
-        onClick={() => generateRound()}
+        onClick={handleGenerateAndRun}
         disabled={loading}
         className="bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs"
       >

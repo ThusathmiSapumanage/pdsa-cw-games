@@ -1,13 +1,14 @@
 package com.pdsa.games.mincost;
 
-import com.pdsa.games.mincost.service.AlgorithmSolveResult;
-import com.pdsa.games.mincost.service.GreedyAssignmentService;
-import com.pdsa.games.mincost.service.HungarianAssignmentService;
+import java.util.List;
+import java.util.Random;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Random;
+import com.pdsa.games.mincost.service.AlgorithmSolveResult;
+import com.pdsa.games.mincost.service.GreedyAssignmentService;
+import com.pdsa.games.mincost.service.HungarianAssignmentService;
 
 /**
  * MIN COST SERVICE (The Orchestrator):
