@@ -63,6 +63,7 @@ export default function TrafficSimulationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isLocked, setIsLocked] = useState(false);
+  const [roundHistory, setRoundHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isReady || !accessToken || sessionId) return;
@@ -228,6 +229,16 @@ export default function TrafficSimulationPage() {
       const data = await readJson(res, "Submit failed");
       setSubmission(data);
 
+      setRoundHistory((prev) => [
+        ...prev,
+        {
+          round: prev.length + 1,
+          result: data.correct ? "Correct" : "Incorrect",
+          ford: Number(fordRun?.timeMs || 0).toFixed(3),
+          dinic: Number(dinicRun?.timeMs || 0).toFixed(3),
+        },
+      ]);
+
       if (data.correct) setIsLocked(true);
 
       setStatus(
@@ -262,7 +273,7 @@ export default function TrafficSimulationPage() {
         disabled={loading}
         className="bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs"
       >
-        {loading ? "GENERATING..." : "GENERATE & RUN"}
+        {loading ? "GENERATING..." : "GENERATE & NEXT ROUND"}
       </button>
 
       <button
@@ -332,14 +343,48 @@ export default function TrafficSimulationPage() {
   const results = (
     <div className="flex flex-col gap-2 font-mono text-[10px] text-white/70">
       <p>Status: <span className="text-yellow-400">{status}</span></p>
-      <p>Dinic: {dinicRun ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)` : "--"}</p>
-      <p>Ford: {fordRun ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)` : "--"}</p>
+      <p>Dinic: {submission && dinicRun ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)` : "--"}</p>
+      <p>Ford: {submission && fordRun ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)` : "--"}</p>
       <p>Bottleneck threshold: {bottleneckThreshold || "--"}</p>
       <p>
         Result: {submission ? (
           submission.correct ? <span className="text-green-400">Correct</span> : <span className="text-red-400">Incorrect</span>
         ) : "Pending"}
       </p>
+      <div className="mt-4">
+        <p className="text-white/80 text-xs font-bold mb-2">Round History</p>
+            
+        <div className="max-h-64 overflow-y-auto border border-white/10 rounded">
+          <table className="w-full text-[10px] text-left">
+            <thead className="text-white/60 border-b border-white/10">
+              <tr>
+                <th className="p-2">Round</th>
+                <th className="p-2">Result</th>
+                <th className="p-2">Ford</th>
+                <th className="p-2">Dinic</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roundHistory.map((row, index) => (
+                <tr key={index} className="border-b border-white/5">
+                  <td className="p-2">{row.round}</td>
+                  <td
+                    className={`p-2 ${
+                      row.result === "Correct"
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {row.result}
+                  </td>
+                  <td className="p-2">{row.ford} ms</td>
+                  <td className="p-2">{row.dinic} ms</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 
