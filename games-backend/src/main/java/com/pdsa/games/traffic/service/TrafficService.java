@@ -64,7 +64,7 @@ public class TrafficService {
     private final GameSessionRepository gameSessionRepository;
     private final PlayerRepository playerRepository;
     private final ResponseRepository responseRepository;
-    private final Random random = new Random();
+    //private final Random random = new Random();
 
     public TrafficService(
             RoadRepository roadRepository,
@@ -89,6 +89,8 @@ public class TrafficService {
     @Transactional(rollbackFor = Exception.class)
     public List<Road> generateTrafficNetwork(Integer sessionId) {
         validateSession(sessionId);
+
+        Random random = new Random(sessionId.longValue());
 
         // Ensure the parent traffic game row exists before writing child road rows.
         TrafficSimGame trafficGame = trafficSimGameRepository.findById(sessionId)
