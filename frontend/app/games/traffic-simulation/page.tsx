@@ -234,6 +234,7 @@ export default function TrafficSimulationPage() {
         {
           round: prev.length + 1,
           result: data.correct ? "Correct" : "Incorrect",
+          answer: answer,
           ford: Number(fordRun?.timeMs || 0).toFixed(3),
           dinic: Number(dinicRun?.timeMs || 0).toFixed(3),
         },
@@ -360,6 +361,7 @@ export default function TrafficSimulationPage() {
               <tr>
                 <th className="p-2">Round</th>
                 <th className="p-2">Result</th>
+                <th className="p-2">Answer</th>
                 <th className="p-2">Ford</th>
                 <th className="p-2">Dinic</th>
               </tr>
@@ -377,6 +379,7 @@ export default function TrafficSimulationPage() {
                   >
                     {row.result}
                   </td>
+                  <td className="p-2">{row.answer}</td>
                   <td className="p-2">{row.ford} ms</td>
                   <td className="p-2">{row.dinic} ms</td>
                 </tr>
