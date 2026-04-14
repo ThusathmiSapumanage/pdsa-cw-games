@@ -132,6 +132,7 @@ public class TrafficService {
         return new AlgorithmRunResult("Ford-Fulkerson", maxFlow, timeMs);
     }
 
+    @Transactional
     public AnswerSubmissionResult submitAnswer(Integer sessionId, Integer answer) {
         if (answer == null || answer < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "answer must be a non-negative integer");
@@ -140,7 +141,7 @@ public class TrafficService {
         GameSessionModel session = validateSession(sessionId);
         Integer correct = getSavedMaxFlow(sessionId);
 
-        boolean alreadyCorrect = responseRepository.findBySessionId(sessionId)
+        boolean alreadyCorrect = responseRepository.findWithLockBySessionId(sessionId)
                 .stream()
                 .anyMatch(r -> Boolean.TRUE.equals(r.getIsCorrect()));
 
