@@ -118,7 +118,7 @@ public class TrafficService {
         long start = System.nanoTime();
         int maxFlow = runDinic(graph);
         double timeMs = nanosToMs(System.nanoTime() - start);
-        saveAlgorithmExecution(sessionId, DINIC_NAME, timeMs, AlgorithmExecuteOutputResult.SUCCESS);
+        saveAlgorithmExecution(sessionId, DINIC_NAME, timeMs, maxFlow, AlgorithmExecuteOutputResult.SUCCESS);
         return new AlgorithmRunResult("Dinic", maxFlow, timeMs);
     }
 
@@ -128,7 +128,7 @@ public class TrafficService {
         long start = System.nanoTime();
         int maxFlow = dfsFordFulkerson(graph, SOURCE, SINK);
         double timeMs = nanosToMs(System.nanoTime() - start);
-        saveAlgorithmExecution(sessionId, FORD_FULKERSON_NAME, timeMs, AlgorithmExecuteOutputResult.SUCCESS);
+        saveAlgorithmExecution(sessionId, FORD_FULKERSON_NAME, timeMs, maxFlow, AlgorithmExecuteOutputResult.SUCCESS);
         return new AlgorithmRunResult("Ford-Fulkerson", maxFlow, timeMs);
     }
 
@@ -357,6 +357,7 @@ public class TrafficService {
             Integer sessionId,
             String algorithmName,
             double timeMs,
+            int maxFlow,
             AlgorithmExecuteOutputResult result
     ) {
         Integer gameId = ensureTrafficGame().getGameId();
@@ -369,6 +370,8 @@ public class TrafficService {
         execution.setAlgorithmId(algorithmId);
         execution.setExecutionTimeMs(BigDecimal.valueOf(timeMs));
         execution.setOutputResult(result);
+        algorithmExecuteRepository.save(execution);
+        execution.setMaxFlowResult(maxFlow);
         algorithmExecuteRepository.save(execution);
     }
 
