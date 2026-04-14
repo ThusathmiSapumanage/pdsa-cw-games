@@ -86,7 +86,7 @@ public class TrafficService {
         this.responseRepository = responseRepository;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public List<Road> generateTrafficNetwork(Integer sessionId) {
         validateSession(sessionId);
 
