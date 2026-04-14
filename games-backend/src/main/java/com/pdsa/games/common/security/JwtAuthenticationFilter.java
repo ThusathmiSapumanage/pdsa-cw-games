@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.jsonwebtoken.JwtException;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -36,8 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        // Skip JWT validation for register and login
-        if (path.equals("/api/players") || path.equals("/api/players/login")) {
+        // Skip JWT validation only for the public auth endpoints.
+        if (isPublicPlayerEndpoint(request, path)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -76,5 +77,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicPlayerEndpoint(HttpServletRequest request, String path) {
+        String method = request.getMethod();
+
+        return HttpMethod.POST.matches(method)
+                && (path.equals("/api/players") || path.equals("/api/players/login"));
     }
 }

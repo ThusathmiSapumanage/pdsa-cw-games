@@ -37,4 +37,7 @@ public class AlgorithmExecuteModel {
 	@Schema(description = "Execution result of the algorithm", example = "SUCCESS")
 	private AlgorithmExecuteOutputResult outputResult;
 
+	@Column(name = "Max_Flow_Result")
+    private Integer maxFlowResult;
+
 }

@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS Algorithm_Execute (
     Algorithm_Id INT UNSIGNED NOT NULL,
     Execution_Time_MS DECIMAL(10,3) UNSIGNED NOT NULL,
     Output_Result ENUM('SUCCESS', 'FAILURE', 'TIMEOUT', 'ERROR') NOT NULL,
+    Max_Flow_Result INT NULL,
     PRIMARY KEY (Session_Id, Algorithm_Id),
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE,
     FOREIGN KEY (Algorithm_Id) REFERENCES Algorithm(Algorithm_Id)
