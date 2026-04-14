@@ -114,7 +114,7 @@ public class TrafficService {
 
     @Transactional
     public AlgorithmRunResult calculateDinicMaxFlow(Integer sessionId) {
-        Map<String, Map<String, Integer>> graph = buildCapacityGraph(sessionId);
+        Map<String, Map<String, Integer>> graph = cloneGraph(buildCapacityGraph(sessionId));
         long start = System.nanoTime();
         int maxFlow = runDinic(graph);
         double timeMs = nanosToMs(System.nanoTime() - start);
@@ -124,7 +124,7 @@ public class TrafficService {
 
     @Transactional
     public AlgorithmRunResult calculateFordFulkersonMaxFlow(Integer sessionId) {
-        Map<String, Map<String, Integer>> graph = buildCapacityGraph(sessionId);
+        Map<String, Map<String, Integer>> graph = cloneGraph(buildCapacityGraph(sessionId));
         long start = System.nanoTime();
         int maxFlow = dfsFordFulkerson(graph, SOURCE, SINK);
         double timeMs = nanosToMs(System.nanoTime() - start);
@@ -217,6 +217,18 @@ public class TrafficService {
 
         return graph;
     }
+
+    private Map<String, Map<String, Integer>> cloneGraph(
+            Map<String, Map<String, Integer>> original
+        ) {
+            Map<String, Map<String, Integer>> copy = new HashMap<>();
+
+            for (Map.Entry<String, Map<String, Integer>> entry : original.entrySet()) {
+                copy.put(entry.getKey(), new HashMap<>(entry.getValue()));
+            }
+
+            return copy;
+        }
 
     private int runDinic(Map<String, Map<String, Integer>> graph) {
         List<String> nodes = sortedNodes(graph);
