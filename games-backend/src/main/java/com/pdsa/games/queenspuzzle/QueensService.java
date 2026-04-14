@@ -11,7 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class QueensService {
 
 	private static final int DEFAULT_BOARD_SIZE = 16;
-	private static final int DEFAULT_QUEEN_COUNT = 8;
+	private static final int DEFAULT_QUEEN_COUNT = 16;
+	private static final int MAX_BOARD_SIZE = 16;
 
 	private static final String GAME_NAME = "Sixteen Queens Puzzle";
 	private static final String SEQUENTIAL_NAME = "Sixteen Queens - Sequential";
@@ -52,7 +53,7 @@ public class QueensService {
 		Long sessionId = repository.createGameSession(gameId, payload.getPlayerId());
 
 		long sequentialStart = System.nanoTime();
-		List<int[]> solutions = solver.solveSequential(boardSize, queenCount);
+		int sequentialCount = solver.solveSequentialCount(boardSize, queenCount);
 		long sequentialEnd = System.nanoTime();
 
 		long threadedStart = System.nanoTime();
@@ -62,11 +63,10 @@ public class QueensService {
 		double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
 		double threadedMs = nanosToMs(threadedEnd - threadedStart);
 
-		int totalSolutions = solutions.size();
+		int totalSolutions = sequentialCount;
 		String threadedStatus = threadedCount == totalSolutions ? "SUCCESS" : "ERROR";
 
 		repository.saveSixteenQueensGame(sessionId, totalSolutions);
-		repository.saveSolutions(sessionId, solutions);
 		repository.saveAlgorithmExecution(sessionId, sequentialId, sequentialMs, "SUCCESS");
 		repository.saveAlgorithmExecution(sessionId, threadedId, threadedMs, threadedStatus);
 
@@ -111,10 +111,10 @@ public class QueensService {
 		}
 
 		List<QueensModel.Position> positions = normalizePositions(request.getQueens());
-		validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
 
-		Integer solutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
-		if (solutionId == null) {
+		try {
+			validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
+		} catch (IllegalArgumentException ex) {
 			String responseSummary = buildResponseSummary(request.getPlayerId(), "INCORRECT");
 			repository.saveResponse(request.getSessionId(), responseSummary, false);
 
@@ -125,11 +125,13 @@ public class QueensService {
 					false,
 					discovered,
 					totalSolutions,
-					"Incorrect solution. Try again."
+					"Incorrect solution: " + ex.getMessage()
 			);
 		}
 
-		if (repository.isSolutionDiscovered(request.getSessionId(), solutionId)) {
+		Integer existingSolutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
+
+		if (existingSolutionId != null) {
 			return new QueensModel.SubmitResponse(
 					request.getSessionId(),
 					request.getPlayerId(),
@@ -137,14 +139,14 @@ public class QueensService {
 					true,
 					discovered,
 					totalSolutions,
-					"This solution was already recognized. Try a different one."
+					"This solution was already discovered. Try a different one."
 			);
 		}
 
-		repository.markSolutionDiscovered(request.getSessionId(), solutionId);
+		int newSolutionId = repository.insertDiscoveredSolution(request.getSessionId(), positions);
 		int updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
 
-		String responseSummary = buildResponseSummary(request.getPlayerId(), "SOLUTION_" + solutionId);
+		String responseSummary = buildResponseSummary(request.getPlayerId(), "SOLUTION_" + newSolutionId);
 		repository.saveResponse(request.getSessionId(), responseSummary, true);
 
 		String message = "Correct solution recorded.";
@@ -195,11 +197,11 @@ public class QueensService {
 	}
 
 	private void validateBoardConfig(int boardSize, int queenCount) {
-		if (boardSize != DEFAULT_BOARD_SIZE) {
-			throw new IllegalArgumentException("Board size must be 16.");
+		if (boardSize < 4 || boardSize > MAX_BOARD_SIZE) {
+			throw new IllegalArgumentException("Board size must be between 4 and " + MAX_BOARD_SIZE + ".");
 		}
-		if (queenCount != DEFAULT_QUEEN_COUNT) {
-			throw new IllegalArgumentException("Queen count must be 8.");
+		if (queenCount < 1 || queenCount > boardSize) {
+			throw new IllegalArgumentException("Queen count must be between 1 and the board size.");
 		}
 	}
 

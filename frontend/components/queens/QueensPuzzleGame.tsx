@@ -17,7 +17,7 @@ import {
 } from "../../src/lib/QueensApi";
 
 const BOARD_SIZE = 16;
-const QUEEN_COUNT = 8;
+const QUEEN_COUNT = 16;
 
 type GamePhase =
   | "idle"
@@ -169,9 +169,9 @@ export default function QueensPuzzleGame() {
           </div>
 
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
-            Backend will solve all valid placements of {QUEEN_COUNT} queens on a{" "}
-            {BOARD_SIZE}×{BOARD_SIZE} board using both sequential and threaded
-            backtracking.
+            Backend counts all valid placements of {QUEEN_COUNT} queens on a{" "}
+            {BOARD_SIZE}×{BOARD_SIZE} board using sequential and threaded
+            backtracking. Expect ~2 min total.
           </div>
 
           <button
@@ -186,8 +186,13 @@ export default function QueensPuzzleGame() {
       {phase === "starting" && (
         <div className="text-center py-8">
           <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/50">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Solving...
+          </div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[200px] mx-auto">
+            Counting all {BOARD_SIZE}×{BOARD_SIZE} placements.
+            <br />
+            Sequential ~2 min, threaded ~20 sec.
           </div>
         </div>
       )}

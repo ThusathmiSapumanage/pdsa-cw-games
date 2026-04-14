@@ -20,6 +20,60 @@ class QueensSolver {
         return solutions;
     }
 
+    int solveSequentialCount(int boardSize, int queenCount) {
+        int[] rowToCol = initRowToCol(boardSize);
+        boolean[] columns = new boolean[boardSize];
+        boolean[] diag1 = new boolean[2 * boardSize - 1];
+        boolean[] diag2 = new boolean[2 * boardSize - 1];
+        return countBacktrack(0, 0, boardSize, queenCount, rowToCol, columns, diag1, diag2);
+    }
+
+    private int countBacktrack(
+            int row,
+            int placed,
+            int boardSize,
+            int queenCount,
+            int[] rowToCol,
+            boolean[] columns,
+            boolean[] diag1,
+            boolean[] diag2) {
+        if (placed == queenCount) {
+            return 1;
+        }
+        if (row == boardSize) {
+            return 0;
+        }
+        if ((boardSize - row) < (queenCount - placed)) {
+            return 0;
+        }
+
+        int total = 0;
+        for (int col = 0; col < boardSize; col++) {
+            int d1 = diag1Index(row, col, boardSize);
+            int d2 = row + col;
+            if (!columns[col] && !diag1[d1] && !diag2[d2]) {
+                columns[col] = true;
+                diag1[d1] = true;
+                diag2[d2] = true;
+                rowToCol[row] = col;
+
+                total += countBacktrack(row + 1, placed + 1, boardSize, queenCount, rowToCol, columns, diag1, diag2);
+
+                rowToCol[row] = -1;
+                columns[col] = false;
+                diag1[d1] = false;
+                diag2[d2] = false;
+            }
+        }
+
+        if ((boardSize - (row + 1)) >= (queenCount - placed)) {
+            rowToCol[row] = -1;
+            total += countBacktrack(row + 1, placed, boardSize, queenCount, rowToCol, columns, diag1, diag2);
+        }
+
+        return total;
+    }
+
     int solveThreadedCount(int boardSize, int queenCount) {
         List<State> seeds = new ArrayList<>();
         int[] initial = initRowToCol(boardSize);
