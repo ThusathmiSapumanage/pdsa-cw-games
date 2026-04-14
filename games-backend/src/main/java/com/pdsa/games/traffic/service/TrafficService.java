@@ -378,7 +378,10 @@ public class TrafficService {
 
         AlgorithmExecuteId executionId = new AlgorithmExecuteId(sessionId, algorithmId);
         Optional<AlgorithmExecuteModel> existing = algorithmExecuteRepository.findById(executionId);
-        AlgorithmExecuteModel execution = existing.orElseGet(AlgorithmExecuteModel::new);
+        if (existing.isPresent()) {
+            return; // preserve first execution, prevent overwrite
+        }
+        AlgorithmExecuteModel execution = new AlgorithmExecuteModel();
         execution.setSessionId(sessionId);
         execution.setAlgorithmId(algorithmId);
         execution.setExecutionTimeMs(BigDecimal.valueOf(timeMs));
