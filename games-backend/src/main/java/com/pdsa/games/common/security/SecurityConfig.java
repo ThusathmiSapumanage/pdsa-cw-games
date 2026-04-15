@@ -55,8 +55,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/players").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/players/login").permitAll()
 
-                        .requestMatchers("/knights-tour/**").authenticated()
+                        // MinCost game endpoints are public for CW gameplay/demo flow
+                        .requestMatchers("/api/mincost/**").permitAll()
 
+                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

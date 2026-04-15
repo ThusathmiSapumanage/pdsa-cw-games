@@ -36,6 +36,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const inputClassName =
+    "w-full rounded-xl border border-white/10 bg-[#0b1220] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition-all duration-200 focus:border-blue-500/70 focus:bg-[#0f1728] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.18)]";
+
   const isLoginReady = email.trim().length > 0 && password.trim().length > 0;
 
   const isRegisterReady =
@@ -219,7 +222,7 @@ export default function LoginPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <input
@@ -227,7 +230,7 @@ export default function LoginPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <button
@@ -245,7 +248,7 @@ export default function LoginPage() {
                 placeholder="Player Name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <input
@@ -253,7 +256,7 @@ export default function LoginPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <input
@@ -261,7 +264,7 @@ export default function LoginPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <input
@@ -269,7 +272,7 @@ export default function LoginPage() {
                 placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent outline-none"
+                className={inputClassName}
               />
 
               <button

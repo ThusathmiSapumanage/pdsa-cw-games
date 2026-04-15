@@ -69,33 +69,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const storedAuthRaw = localStorage.getItem(STORAGE_KEY);
-      const directToken = localStorage.getItem(TOKEN_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as { email?: string; token?: string };
+        const email = parsed.email ?? null;
+        const token = parsed.token ?? null;
 
-      let storedEmail: string | null = null;
-      let storedToken: string | null = directToken;
-
-      if (storedAuthRaw) {
-        const parsed = JSON.parse(storedAuthRaw) as Partial<StoredAuth>;
-        storedEmail = typeof parsed.email === "string" ? parsed.email : null;
-
-        if (!storedToken && typeof parsed.token === "string") {
-          storedToken = parsed.token;
+        if (email && token) {
+          setUserEmail(email);
+          setAccessToken(token);
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
         }
-      }
-
-      if (!storedToken || !isLikelyJwt(storedToken) || isExpiredJwt(storedToken)) {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("jwtToken");
-
-        setIsAuthenticated(false);
-        setUserEmail(null);
-        setAccessToken(null);
-        setIsReady(true);
-        return;
       }
 
       const payload = decodeJwtPayload(storedToken);
@@ -124,19 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
     setUserEmail(normalizedEmail);
     setAccessToken(token);
-
-    const payloadToStore: StoredAuth = {
-      email: normalizedEmail,
-      token,
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToStore));
-
-    // Important: this is the key your Knights Tour API already reads
-    localStorage.setItem(TOKEN_KEY, token);
-
-    // Optional mirrors for compatibility with other pages/helpers
-    localStorage.setItem("accessToken", token);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email, token }));
   };
 
   const logout = () => {
