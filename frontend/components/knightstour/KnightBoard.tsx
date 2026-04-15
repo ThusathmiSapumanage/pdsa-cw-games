@@ -15,6 +15,7 @@ type KnightBoardProps = {
   playbackMoves?: Move[];
   playbackStep?: number;
   showPlayerPath?: boolean;
+  compact?: boolean;
 };
 
 export default function KnightBoard({
@@ -29,6 +30,7 @@ export default function KnightBoard({
   playbackMoves = [],
   playbackStep,
   showPlayerPath = true,
+  compact = false,
 }: KnightBoardProps) {
   const getPlayerMoveForCell = (x: number, y: number) =>
     showPlayerPath ? selectedMoves.find((move) => move.x === x && move.y === y) : undefined;
@@ -53,15 +55,60 @@ export default function KnightBoard({
   const knightX = playbackMove?.x ?? latestSelectedMove?.x ?? startX;
   const knightY = playbackMove?.y ?? latestSelectedMove?.y ?? startY;
 
-  const cellBaseSize = boardSize === 16 ? "minmax(0, 1fr)" : "minmax(72px, 1fr)";
-  const numberSize = boardSize === 16 ? "text-sm" : "text-xl";
-  const coordinateSize = boardSize === 16 ? "text-[10px]" : "text-xs";
-  const knightSize = boardSize === 16 ? "text-3xl" : "text-6xl";
-  const hintSize = boardSize === 16 ? "text-[10px]" : "text-xs";
+  const cellBaseSize = compact
+    ? boardSize === 16
+      ? "minmax(28px, 1fr)"
+      : "minmax(54px, 1fr)"
+    : boardSize === 16
+      ? "minmax(0, 1fr)"
+      : "minmax(72px, 1fr)";
+
+  const numberSize = compact
+    ? boardSize === 16
+      ? "text-[10px]"
+      : "text-lg"
+    : boardSize === 16
+      ? "text-sm"
+      : "text-xl";
+
+  const coordinateSize = compact
+    ? boardSize === 16
+      ? "text-[8px]"
+      : "text-[10px]"
+    : boardSize === 16
+      ? "text-[10px]"
+      : "text-xs";
+
+  const knightSize = compact
+    ? boardSize === 16
+      ? "text-xl"
+      : "text-4xl"
+    : boardSize === 16
+      ? "text-3xl"
+      : "text-6xl";
+
+  const hintSize = compact
+    ? boardSize === 16
+      ? "text-[8px]"
+      : "text-[10px]"
+    : boardSize === 16
+      ? "text-[10px]"
+      : "text-xs";
+
+  const minHeightClass = compact
+    ? boardSize === 16
+      ? "min-h-[28px]"
+      : "min-h-[42px]"
+    : "min-h-[50px]";
+
+  const cellRadiusClass = compact ? "rounded-lg" : "rounded-xl";
+  const boardPaddingClass = compact ? "p-3" : "p-4";
+  const boardGapClass = compact ? "gap-[3px]" : "gap-[4px]";
+  const boardRadiusClass = compact ? "rounded-[22px]" : "rounded-[28px]";
 
   return (
     <div
-      className="grid gap-[4px] rounded-[28px] border border-white/10 bg-black/35 p-4 shadow-2xl"
+      className={`grid ${boardGapClass} ${boardRadiusClass} border border-white/10 bg-black/35 ${boardPaddingClass} shadow-2xl w-fit max-w-full`}
       style={{
         gridTemplateColumns: `repeat(${boardSize}, ${cellBaseSize})`,
       }}
@@ -108,9 +155,9 @@ export default function KnightBoard({
             type="button"
             onClick={() => onCellClick(col, row)}
             disabled={disabled}
-            className={`relative flex aspect-square min-h-[50px] items-center justify-center overflow-hidden rounded-xl border font-bold transition-all duration-200 ${
+            className={`relative flex aspect-square ${minHeightClass} items-center justify-center overflow-hidden border font-bold transition-all duration-200 ${
               disabled ? "cursor-not-allowed opacity-90" : "hover:scale-[1.03]"
-            } ${cellClass}`}
+            } ${cellRadiusClass} ${cellClass}`}
             title={`(${col}, ${row})`}
           >
             <span
@@ -120,7 +167,7 @@ export default function KnightBoard({
             </span>
 
             {isStart && !playerMove && !correctMove && !hintMove && !isKnightHere && !isPlaybackCurrent && (
-              <span className="z-10 text-[11px] font-extrabold tracking-wide text-emerald-200">
+              <span className="z-10 text-[10px] font-extrabold tracking-wide text-emerald-200">
                 START
               </span>
             )}

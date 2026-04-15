@@ -118,8 +118,8 @@ export default function KnightsTourPage() {
     viewMode === "warnsdorff"
       ? warnsdorffMoves
       : viewMode === "backtracking"
-      ? backtrackingMoves
-      : [];
+        ? backtrackingMoves
+        : [];
 
   useEffect(() => {
     if (hintCooldown <= 0) return;
@@ -400,17 +400,17 @@ export default function KnightsTourPage() {
     viewMode === "warnsdorff"
       ? warnsdorffMoves
       : viewMode === "backtracking"
-      ? backtrackingMoves
-      : [];
+        ? backtrackingMoves
+        : [];
 
   const statusClass =
     submitResult?.outcome === "WIN"
       ? "text-green-300 border-green-500/20 bg-green-600/10"
       : submitResult?.outcome === "DRAW"
-      ? "text-amber-300 border-amber-500/20 bg-amber-600/10"
-      : submitResult?.outcome === "LOSE"
-      ? "text-rose-300 border-rose-500/20 bg-rose-600/10"
-      : "text-white/70 border-white/10 bg-white/5";
+        ? "text-amber-300 border-amber-500/20 bg-amber-600/10"
+        : submitResult?.outcome === "LOSE"
+          ? "text-rose-300 border-rose-500/20 bg-rose-600/10"
+          : "text-white/70 border-white/10 bg-white/5";
 
   return (
     <AuthGate>
@@ -546,16 +546,26 @@ export default function KnightsTourPage() {
                   </button>
                 </div>
 
-                <AlgoDropdown
-                  label="Speed"
-                  value={String(playbackSpeed)}
-                  onChange={(value) => setPlaybackSpeed(Number(value) as 0.5 | 1 | 2)}
-                  options={[
-                    { value: "0.5", label: "0.5x" },
-                    { value: "1", label: "1x" },
-                    { value: "2", label: "2x" },
-                  ]}
-                />
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">
+                    Speed
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([0.5, 1, 2] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => setPlaybackSpeed(speed)}
+                        className={`rounded-lg py-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                          playbackSpeed === speed
+                            ? "bg-cyan-500 text-black"
+                            : "bg-white/10 text-white hover:bg-white/20"
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -621,8 +631,8 @@ export default function KnightsTourPage() {
 
               {(warnsdorffMoves.length > 0 || backtrackingMoves.length > 0) && (
                 <div className="grid grid-cols-1 items-start gap-5 2xl:grid-cols-2">
-                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-xl backdrop-blur">
-                    <h3 className="mb-3 text-base font-semibold text-white">
+                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl backdrop-blur">
+                    <h3 className="mb-2 text-sm font-semibold text-white">
                       Warnsdorff Solution
                     </h3>
 
@@ -637,13 +647,14 @@ export default function KnightsTourPage() {
                           disabled
                           startX={roundData.startX}
                           startY={roundData.startY}
+                          compact
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-xl backdrop-blur">
-                    <h3 className="mb-3 text-base font-semibold text-white">
+                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl backdrop-blur">
+                    <h3 className="mb-2 text-sm font-semibold text-white">
                       Backtracking Solution
                     </h3>
 
@@ -658,6 +669,7 @@ export default function KnightsTourPage() {
                           disabled
                           startX={roundData.startX}
                           startY={roundData.startY}
+                          compact
                         />
                       </div>
                     </div>
@@ -687,17 +699,7 @@ export default function KnightsTourPage() {
           )
         }
         results={
-          <div className="space-y-3">
-            <div className="rounded-lg border border-white/5 bg-white/5 p-3 shadow-inner flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase text-white/40">Moves</span>
-              <span className="text-lg font-black text-white">{selectedMoves.length}</span>
-            </div>
-
-            <div className="rounded-lg border border-white/5 bg-white/5 p-3 shadow-inner flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase text-white/40">Board</span>
-              <span className="text-lg font-black text-white">{boardSize}×{boardSize}</span>
-            </div>
-
+          <div className="flex h-full flex-col justify-start space-y-3 pt-1">
             <div className={`flex items-center justify-between rounded-lg border p-3 ${statusClass}`}>
               <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
                 Status
@@ -707,8 +709,13 @@ export default function KnightsTourPage() {
               </span>
             </div>
 
+            <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-3 shadow-inner">
+              <span className="font-mono text-[10px] uppercase text-white/40">Moves</span>
+              <span className="text-lg font-black text-white">{selectedMoves.length}</span>
+            </div>
+
             {submitResult && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between rounded border border-white/5 bg-white/[0.03] p-3">
                   <span className="font-mono text-[10px] uppercase text-white/35">Reason</span>
                   <span className="text-right text-[11px] font-bold text-white/80">
