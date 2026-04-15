@@ -4,8 +4,14 @@ export type Move = {
   y: number;
 };
 
+export type AlgorithmMetric = {
+  algorithmName: string;
+  executionTimeMs: number;
+  moveCount: number;
+  status: string;
+};
+
 export type StartRequest = {
-  playerId: number;
   boardSize: 8 | 16;
 };
 
@@ -18,13 +24,14 @@ export type StartResponse = {
   expectedMoveCount: number;
   algorithmName: string;
   algorithmExecutionTimeMs: number;
+  comparisonSummary: string;
+  algorithmMetrics: AlgorithmMetric[];
   status: string;
   message: string;
 };
 
 export type SubmitRequest = {
   sessionId: number;
-  playerId: number;
   moves: Move[];
 };
 
@@ -32,8 +39,12 @@ export type SubmitResponse = {
   responseId: number;
   sessionId: number;
   playerId: number;
+
   correct: boolean;
+  validTour: boolean;
+  matchedSavedSolution: boolean;
   outcome: "WIN" | "LOSE" | "DRAW";
+
   expectedMoveCount: number;
   submittedMoveCount: number;
 
@@ -55,7 +66,6 @@ export type SubmitResponse = {
 
 export type HintRequest = {
   sessionId: number;
-  playerId: number;
   moves: Move[];
 };
 
@@ -72,9 +82,13 @@ export type HintResponse = {
 export type CorrectAnswerResponse = {
   sessionId: number;
   playerId: number;
-  algorithmName: string;
-  moveCount: number;
-  moves: Move[];
+
+  warnsdorffMoves: Move[];
+  warnsdorffMoveCount: number;
+
+  backtrackingMoves: Move[];
+  backtrackingMoveCount: number;
+
   message: string;
 };
 
@@ -83,4 +97,8 @@ export type ApiError = {
   status?: number;
   error?: string;
   message?: string;
+  title?: string;
+  detail?: string;
+  path?: string;
+  instance?: string;
 };

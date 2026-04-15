@@ -16,6 +16,12 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
+function isLikelyJwt(token: string | null | undefined): boolean {
+  if (!token || typeof token !== "string") return false;
+  const parts = token.split(".");
+  return parts.length === 3 && parts.every((part) => part.length > 0);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -73,14 +79,18 @@ export default function LoginPage() {
     try {
       const data = await loginPlayer(email, password);
 
-      if (!data.accessToken) {
-        setError("Sign-in failed. Invalid server response.");
+      if (!data?.accessToken) {
+        setError("Sign-in failed. Access token was missing from the server response.");
+        return;
+      }
+
+      if (!isLikelyJwt(data.accessToken)) {
+        setError("Sign-in failed. The returned access token is not a valid JWT format.");
         return;
       }
 
       login(email, data.accessToken);
       router.replace(nextPath);
-
     } catch (err) {
       setError(
         err instanceof Error
@@ -125,14 +135,18 @@ export default function LoginPage() {
         return;
       }
 
-      if (!loginData.accessToken) {
+      if (!loginData?.accessToken) {
         setError("Registration succeeded, but login token was missing.");
+        return;
+      }
+
+      if (!isLikelyJwt(loginData.accessToken)) {
+        setError("Registration succeeded, but the returned token is not a valid JWT format.");
         return;
       }
 
       login(email, loginData.accessToken);
       router.replace(nextPath);
-
     } catch (err) {
       setError(
         err instanceof Error
@@ -146,14 +160,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center px-6 py-24 relative">
-
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.18),transparent_55%)]" />
 
       <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.12fr_1fr] lg:min-h-[620px] gap-10 bg-[#070707] border border-white/5 rounded-2xl overflow-hidden">
-
-        {/* LEFT PANEL */}
         <div className="p-10 lg:p-12 h-full flex flex-col border-b lg:border-b-0 lg:border-r border-white/5">
-
           <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-blue-500 mb-6">
             User Access
           </p>
@@ -171,7 +181,6 @@ export default function LoginPage() {
           </p>
 
           <div className="mt-10 flex gap-4">
-
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -186,7 +195,6 @@ export default function LoginPage() {
                 {tab.label}
               </button>
             ))}
-
           </div>
 
           {error && (
@@ -203,19 +211,15 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
         <div className="p-10 lg:p-12 flex flex-col">
-
           {activeTab === "login" ? (
-
             <form onSubmit={handleLogin} className="flex flex-col gap-6 flex-1">
-
               <input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <input
@@ -223,29 +227,25 @@ export default function LoginPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <button
                 type="submit"
                 disabled={isSubmitting || !isLoginReady}
-                className="mt-auto bg-white text-black py-3 rounded font-bold"
+                className="mt-auto bg-white text-black py-3 rounded font-bold disabled:opacity-50"
               >
                 {isSubmitting ? "Logging In..." : "Login"}
               </button>
-
             </form>
-
           ) : (
-
             <form onSubmit={handleRegister} className="flex flex-col gap-6 flex-1">
-
               <input
                 type="text"
                 placeholder="Player Name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <input
@@ -253,7 +253,7 @@ export default function LoginPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <input
@@ -261,7 +261,7 @@ export default function LoginPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <input
@@ -269,21 +269,18 @@ export default function LoginPage() {
                 placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="border-b border-white/10 py-3 bg-transparent"
+                className="border-b border-white/10 py-3 bg-transparent outline-none"
               />
 
               <button
                 type="submit"
                 disabled={isSubmitting || !isRegisterReady}
-                className="mt-auto bg-white text-black py-3 rounded font-bold"
+                className="mt-auto bg-white text-black py-3 rounded font-bold disabled:opacity-50"
               >
                 {isSubmitting ? "Registering..." : "Register"}
               </button>
-
             </form>
-
           )}
-
         </div>
       </div>
     </div>

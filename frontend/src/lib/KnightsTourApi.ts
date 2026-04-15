@@ -1,26 +1,83 @@
 import {
+  ApiError,
+  CorrectAnswerResponse,
+  HintRequest,
+  HintResponse,
   StartRequest,
   StartResponse,
   SubmitRequest,
   SubmitResponse,
-  HintRequest,
-  HintResponse,
-  CorrectAnswerResponse,
-  ApiError,
 } from "../../components/knightstour/types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  const data = await response.json();
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
 
-  if (!response.ok) {
-    const errorData = data as ApiError;
-    throw new Error(errorData.message || "Request failed");
+  const possibleKeys = ["token", "authToken", "accessToken", "jwtToken"];
+
+  for (const key of possibleKeys) {
+    const rawValue = localStorage.getItem(key);
+    if (!rawValue) continue;
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) continue;
+
+    try {
+      const parsed = JSON.parse(trimmed);
+
+      if (typeof parsed === "string" && parsed.trim()) {
+        return parsed.trim();
+      }
+
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.token === "string" && parsed.token.trim()) {
+          return parsed.token.trim();
+        }
+        if (typeof parsed.accessToken === "string" && parsed.accessToken.trim()) {
+          return parsed.accessToken.trim();
+        }
+      }
+    } catch {
+      return trimmed;
+    }
   }
 
-  return data as T;
+  return null;
+}
+
+function buildHeaders(): HeadersInit {
+  const token = getAuthToken();
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
+  const body = isJson ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    const errorBody = body as ApiError | string;
+
+    const message =
+      typeof errorBody === "string"
+        ? errorBody
+        : errorBody?.message ||
+          errorBody?.detail ||
+          errorBody?.title ||
+          errorBody?.error ||
+          `Request failed with status ${response.status}`;
+
+    throw new Error(message);
+  }
+
+  return body as T;
 }
 
 export async function startKnightTourRound(
@@ -28,27 +85,11 @@ export async function startKnightTourRound(
 ): Promise<StartResponse> {
   const response = await fetch(`${API_BASE_URL}/knights-tour/start`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildHeaders(),
     body: JSON.stringify(payload),
   });
 
-  return handleResponse<StartResponse>(response);
-}
-
-export async function submitKnightTourAnswer(
-  payload: SubmitRequest
-): Promise<SubmitResponse> {
-  const response = await fetch(`${API_BASE_URL}/knights-tour/submit`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return handleResponse<SubmitResponse>(response);
+  return parseResponse<StartResponse>(response);
 }
 
 export async function getKnightTourHint(
@@ -56,28 +97,39 @@ export async function getKnightTourHint(
 ): Promise<HintResponse> {
   const response = await fetch(`${API_BASE_URL}/knights-tour/hint`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildHeaders(),
     body: JSON.stringify(payload),
   });
 
-  return handleResponse<HintResponse>(response);
+  return parseResponse<HintResponse>(response);
+}
+
+export async function submitKnightTourAnswer(
+  payload: SubmitRequest
+): Promise<SubmitResponse> {
+  const response = await fetch(`${API_BASE_URL}/knights-tour/submit`, {
+    method: "POST",
+    headers: buildHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse<SubmitResponse>(response);
 }
 
 export async function getKnightTourCorrectAnswer(
-  sessionId: number,
-  playerId: number
+  sessionId: number
 ): Promise<CorrectAnswerResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/knights-tour/${sessionId}/correct-answer?playerId=${playerId}`,
+    `${API_BASE_URL}/knights-tour/${sessionId}/correct-answer`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: buildHeaders(),
     }
   );
 
-  return handleResponse<CorrectAnswerResponse>(response);
+  return parseResponse<CorrectAnswerResponse>(response);
+}
+
+export function hasKnightTourAuth(): boolean {
+  return !!getAuthToken();
 }
