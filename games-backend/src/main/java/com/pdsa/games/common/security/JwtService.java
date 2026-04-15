@@ -31,9 +31,9 @@ public class JwtService {
         Instant now = Instant.now();
 
         return Jwts.builder()
-                .subject(subject)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationMs)))
+                .setSubject(subject)
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(signingKey)
                 .compact();
     }
@@ -44,7 +44,8 @@ public class JwtService {
 
     public boolean isTokenValid(String token, String expectedSubject) {
         Claims claims = extractAllClaims(token);
-        return expectedSubject.equals(claims.getSubject()) && claims.getExpiration().after(new Date());
+        return expectedSubject.equals(claims.getSubject())
+                && claims.getExpiration().after(new Date());
     }
 
     public long getExpirationSeconds() {
@@ -52,11 +53,11 @@ public class JwtService {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey)
+        return Jwts.parserBuilder()
+                .setSigningKey(signingKey)
                 .build()
-                .parseSignedClaims(token)
-                .getPayload();
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private void validateSecret(String secret) {
