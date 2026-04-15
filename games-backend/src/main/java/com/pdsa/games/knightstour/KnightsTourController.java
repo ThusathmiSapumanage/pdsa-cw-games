@@ -1,15 +1,13 @@
 package com.pdsa.games.knightstour;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @RestController
 @RequestMapping("/knights-tour")
@@ -24,121 +22,46 @@ public class KnightsTourController {
     }
 
     @PostMapping("/start")
-        @Operation(
-            summary = "Start a Knights Tour round",
-            description = "Creates a new Knights Tour session for the given player and board size.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                required = true,
-                description = "Start request payload",
-                content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = KnightsTourModel.StartRequest.class),
-                    examples = @ExampleObject(
-                        name = "Start request",
-                        value = "{\n  \"playerId\": 1,\n  \"boardSize\": 8\n}"
-                    )
-                )
-            )
-        )
-        @ApiResponses({
-            @ApiResponse(
-                responseCode = "200",
-                description = "Round started successfully",
-                content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = KnightsTourModel.StartResponse.class),
-                    examples = @ExampleObject(
-                        name = "Start response",
-                        value = "{\n  \"sessionId\": 1001,\n  \"playerId\": 1,\n  \"boardSize\": 8,\n  \"startX\": 1,\n  \"startY\": 1,\n  \"expectedMoveCount\": 64,\n  \"algorithmName\": \"Warnsdorff\",\n  \"algorithmExecutionTimeMs\": 12.5,\n  \"status\": \"READY\",\n  \"message\": \"Knight's Tour round generated successfully.\"\n}"
-                    )
-                )
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid start request"),
-            @ApiResponse(responseCode = "500", description = "Unexpected server error")
-        })
     public ResponseEntity<KnightsTourModel.StartResponse> startRound(
-            @RequestBody KnightsTourModel.StartRequest request
+            @RequestBody KnightsTourModel.StartRequest request,
+            Authentication authentication
     ) {
-        return ResponseEntity.ok(service.startRound(request));
+        return ResponseEntity.ok(service.startRound(request, getAuthenticatedEmail(authentication)));
     }
 
     @PostMapping("/submit")
-        @Operation(
-            summary = "Submit a Knights Tour answer",
-            description = "Validates a submitted path for an active Knights Tour session.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                required = true,
-                description = "Answer submission payload",
-                content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = KnightsTourModel.AnswerRequest.class)
-                )
-            )
-        )
-        @ApiResponses({
-            @ApiResponse(
-                responseCode = "200",
-                description = "Answer processed successfully",
-                content = @Content(mediaType = "application/json", schema = @Schema(implementation = KnightsTourModel.AnswerResponse.class))
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid answer submission"),
-            @ApiResponse(responseCode = "500", description = "Unexpected server error")
-        })
     public ResponseEntity<KnightsTourModel.AnswerResponse> submitAnswer(
-            @RequestBody KnightsTourModel.AnswerRequest request
+            @RequestBody KnightsTourModel.AnswerRequest request,
+            Authentication authentication
     ) {
-        return ResponseEntity.ok(service.submitAnswer(request));
+        return ResponseEntity.ok(service.submitAnswer(request, getAuthenticatedEmail(authentication)));
     }
 
     @PostMapping("/hint")
-        @Operation(
-            summary = "Get a Knights Tour hint",
-            description = "Returns the next valid move options from the submitted path.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                required = true,
-                description = "Hint request payload",
-                content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = KnightsTourModel.HintRequest.class)
-                )
-            )
-        )
-        @ApiResponses({
-            @ApiResponse(
-                responseCode = "200",
-                description = "Hint generated successfully",
-                content = @Content(mediaType = "application/json", schema = @Schema(implementation = KnightsTourModel.HintResponse.class))
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid hint request"),
-            @ApiResponse(responseCode = "500", description = "Unexpected server error")
-        })
     public ResponseEntity<KnightsTourModel.HintResponse> getHint(
-            @RequestBody KnightsTourModel.HintRequest request
+            @RequestBody KnightsTourModel.HintRequest request,
+            Authentication authentication
     ) {
-        return ResponseEntity.ok(service.getHint(request));
+        return ResponseEntity.ok(service.getHint(request, getAuthenticatedEmail(authentication)));
     }
 
     @GetMapping("/{sessionId}/correct-answer")
-        @Operation(
-            summary = "Get the correct answer",
-            description = "Fetches the correct Knights Tour solution for the specified session and player."
-        )
-        @ApiResponses({
-            @ApiResponse(
-                responseCode = "200",
-                description = "Correct answer retrieved successfully",
-                content = @Content(mediaType = "application/json", schema = @Schema(implementation = KnightsTourModel.CorrectAnswerResponse.class))
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
-            @ApiResponse(responseCode = "404", description = "Session not found"),
-            @ApiResponse(responseCode = "500", description = "Unexpected server error")
-        })
     public ResponseEntity<KnightsTourModel.CorrectAnswerResponse> getCorrectAnswer(
-            @Parameter(description = "Unique session identifier", example = "1001")
             @PathVariable Long sessionId,
-            @Parameter(description = "Unique player identifier", example = "1")
-            @RequestParam Long playerId
+            Authentication authentication
     ) {
-        return ResponseEntity.ok(service.getCorrectAnswer(sessionId, playerId));
+        return ResponseEntity.ok(service.getCorrectAnswer(sessionId, getAuthenticatedEmail(authentication)));
+    }
+
+    private String getAuthenticatedEmail(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || authentication.getName() == null
+                || authentication.getName().isBlank()) {
+            throw new ResponseStatusException(UNAUTHORIZED, "User is not authenticated.");
+        }
+
+        return authentication.getName();
     }
 }

@@ -18,19 +18,34 @@ public class AlgorithmExecuteService {
 	}
 
 	public AlgorithmExecuteModel saveAlgorithmExecute(AlgorithmExecuteModel algorithmExecute) {
+		if (algorithmExecute == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+		}
+
 		if (algorithmExecute.getSessionId() == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required when creating an execution record");
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"sessionId is required when creating an execution record"
+			);
 		}
 
 		if (algorithmExecute.getAlgorithmId() == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"algorithmId is required when creating an execution record");
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"algorithmId is required when creating an execution record"
+			);
 		}
 
-		AlgorithmExecuteId id = new AlgorithmExecuteId(algorithmExecute.getSessionId(), algorithmExecute.getAlgorithmId());
+		AlgorithmExecuteId id = new AlgorithmExecuteId(
+				algorithmExecute.getSessionId(),
+				algorithmExecute.getAlgorithmId()
+		);
+
 		if (algorithmExecuteRepository.existsById(id)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"Execution record already exists for the given sessionId and algorithmId");
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"Execution record already exists for the given sessionId and algorithmId"
+			);
 		}
 
 		validateExecutionTimeMs(algorithmExecute.getExecutionTimeMs(), false);
@@ -44,25 +59,42 @@ public class AlgorithmExecuteService {
 	}
 
 	public Optional<AlgorithmExecuteModel> getAlgorithmExecuteById(Integer sessionId, Integer algorithmId) {
+		validatePathIds(sessionId, algorithmId);
 		return algorithmExecuteRepository.findById(new AlgorithmExecuteId(sessionId, algorithmId));
 	}
 
 	public List<AlgorithmExecuteModel> getAlgorithmExecutionsBySessionId(Integer sessionId) {
+		if (sessionId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required");
+		}
 		return algorithmExecuteRepository.findAllBySessionId(sessionId);
 	}
 
 	public List<AlgorithmExecuteModel> getAlgorithmExecutionsByGameId(Integer gameId) {
+		if (gameId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "gameId is required");
+		}
 		return algorithmExecuteRepository.findAllByGameId(gameId);
 	}
 
 	public List<AlgorithmExecuteModel> getAlgorithmExecutionsByOutputResult(AlgorithmExecuteOutputResult outputResult) {
+		if (outputResult == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "outputResult is required");
+		}
 		return algorithmExecuteRepository.findAllByOutputResult(outputResult.name());
 	}
 
 	public Optional<AlgorithmExecuteModel> updateAlgorithmExecute(
 			Integer sessionId,
 			Integer algorithmId,
-			AlgorithmExecuteModel algorithmExecute) {
+			AlgorithmExecuteModel algorithmExecute
+	) {
+		validatePathIds(sessionId, algorithmId);
+
+		if (algorithmExecute == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+		}
+
 		validatePathAndBodyIds(sessionId, algorithmId, algorithmExecute);
 		validateExecutionTimeMs(algorithmExecute.getExecutionTimeMs(), false);
 		validateOutputResult(algorithmExecute.getOutputResult(), false);
@@ -78,13 +110,24 @@ public class AlgorithmExecuteService {
 	public Optional<AlgorithmExecuteModel> patchAlgorithmExecute(
 			Integer sessionId,
 			Integer algorithmId,
-			AlgorithmExecuteModel algorithmExecute) {
+			AlgorithmExecuteModel algorithmExecute
+	) {
+		validatePathIds(sessionId, algorithmId);
+
+		if (algorithmExecute == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+		}
+
 		validatePathAndBodyIds(sessionId, algorithmId, algorithmExecute);
 		validateExecutionTimeMs(algorithmExecute.getExecutionTimeMs(), true);
 		validateOutputResult(algorithmExecute.getOutputResult(), true);
 
-		if (algorithmExecute.getExecutionTimeMs() == null && algorithmExecute.getOutputResult() == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one updatable field must be provided");
+		if (algorithmExecute.getExecutionTimeMs() == null
+				&& algorithmExecute.getOutputResult() == null) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"At least one updatable field must be provided"
+			);
 		}
 
 		return algorithmExecuteRepository.findById(new AlgorithmExecuteId(sessionId, algorithmId))
@@ -92,24 +135,55 @@ public class AlgorithmExecuteService {
 					if (algorithmExecute.getExecutionTimeMs() != null) {
 						existing.setExecutionTimeMs(algorithmExecute.getExecutionTimeMs());
 					}
+
 					if (algorithmExecute.getOutputResult() != null) {
 						existing.setOutputResult(algorithmExecute.getOutputResult());
 					}
+
 					return algorithmExecuteRepository.save(existing);
 				});
 	}
 
 	public void deleteAlgorithmExecute(Integer sessionId, Integer algorithmId) {
-		algorithmExecuteRepository.deleteById(new AlgorithmExecuteId(sessionId, algorithmId));
-	}
+		validatePathIds(sessionId, algorithmId);
 
-	private void validatePathAndBodyIds(Integer sessionId, Integer algorithmId, AlgorithmExecuteModel algorithmExecute) {
-		if (algorithmExecute.getSessionId() != null && !sessionId.equals(algorithmExecute.getSessionId())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId in path and body must match");
+		AlgorithmExecuteId id = new AlgorithmExecuteId(sessionId, algorithmId);
+		if (!algorithmExecuteRepository.existsById(id)) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution record not found");
 		}
 
-		if (algorithmExecute.getAlgorithmId() != null && !algorithmId.equals(algorithmExecute.getAlgorithmId())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "algorithmId in path and body must match");
+		algorithmExecuteRepository.deleteById(id);
+	}
+
+	private void validatePathIds(Integer sessionId, Integer algorithmId) {
+		if (sessionId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required");
+		}
+
+		if (algorithmId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "algorithmId is required");
+		}
+	}
+
+	private void validatePathAndBodyIds(
+			Integer sessionId,
+			Integer algorithmId,
+			AlgorithmExecuteModel algorithmExecute
+	) {
+		if (algorithmExecute.getSessionId() != null
+				&& !sessionId.equals(algorithmExecute.getSessionId())) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"sessionId in path and body must match"
+			);
+		}
+
+		if (algorithmExecute.getAlgorithmId() != null
+				&& !algorithmId.equals(algorithmExecute.getAlgorithmId())) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"algorithmId in path and body must match"
+			);
 		}
 	}
 
@@ -122,7 +196,10 @@ public class AlgorithmExecuteService {
 		}
 
 		if (executionTimeMs.signum() < 0) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "executionTimeMs must be non-negative");
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"executionTimeMs must be non-negative"
+			);
 		}
 	}
 
@@ -131,5 +208,4 @@ public class AlgorithmExecuteService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "outputResult is required");
 		}
 	}
-
 }

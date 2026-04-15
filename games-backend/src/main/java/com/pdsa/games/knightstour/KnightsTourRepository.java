@@ -1,5 +1,6 @@
 package com.pdsa.games.knightstour;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -20,12 +21,29 @@ public class KnightsTourRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public Long createGameSession(Long playerId) {
-        Integer gameId = jdbcTemplate.queryForObject(
-                "SELECT Game_Id FROM Game WHERE Game_Name = ?",
+    public Long findPlayerIdByEmail(String playerEmail) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT Player_Id FROM Player WHERE Player_Email = ?",
+                    Long.class,
+                    playerEmail
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return null;
+        }
+    }
+
+    public boolean playerExists(Long playerId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM Player WHERE Player_Id = ?",
                 Integer.class,
-                "Knight Tour"
+                playerId
         );
+        return count != null && count > 0;
+    }
+
+    public Long createGameSession(Long playerId) {
+        Integer gameId = findGameIdByName("Knight Tour");
 
         if (gameId == null) {
             throw new IllegalStateException("Game 'Knight Tour' not found in Game table.");
@@ -51,21 +69,28 @@ public class KnightsTourRepository {
         return key.longValue();
     }
 
-    public Integer findAlgorithmId(String algorithmName) {
-        return jdbcTemplate.queryForObject(
-                "SELECT Algorithm_Id FROM Algorithm WHERE Algorithm_Name = ?",
-                Integer.class,
-                algorithmName
-        );
+    public Integer findGameIdByName(String gameName) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT Game_Id FROM Game WHERE Game_Name = ?",
+                    Integer.class,
+                    gameName
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return null;
+        }
     }
 
-    public boolean playerExists(Long playerId) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM Player WHERE Player_Id = ?",
-                Integer.class,
-                playerId
-        );
-        return count != null && count > 0;
+    public Integer findAlgorithmId(String algorithmName) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT Algorithm_Id FROM Algorithm WHERE Algorithm_Name = ?",
+                    Integer.class,
+                    algorithmName
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return null;
+        }
     }
 
     public boolean sessionBelongsToPlayer(Long sessionId, Long playerId) {
@@ -74,6 +99,15 @@ public class KnightsTourRepository {
                 Integer.class,
                 sessionId,
                 playerId
+        );
+        return count != null && count > 0;
+    }
+
+    public boolean sessionExists(Long sessionId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM Game_Session WHERE Session_Id = ?",
+                Integer.class,
+                sessionId
         );
         return count != null && count > 0;
     }
@@ -195,14 +229,5 @@ public class KnightsTourRepository {
                     }
                 }
         );
-    }
-
-    public boolean sessionExists(Long sessionId) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM Game_Session WHERE Session_Id = ?",
-                Integer.class,
-                sessionId
-        );
-        return count != null && count > 0;
     }
 }
