@@ -61,6 +61,9 @@ public class SecurityConfig {
                         // Login
                         .requestMatchers(HttpMethod.POST, "/api/players/login").permitAll()
 
+                        // MinCost game endpoints are public for CW gameplay/demo flow
+                        .requestMatchers("/api/mincost/**").permitAll()
+
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )

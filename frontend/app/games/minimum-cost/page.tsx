@@ -198,9 +198,8 @@ function MatrixTable({
 
 export default function MinimumCostPage() {
   // Input states
-  const [n, setN] = useState("10"); 
-  const [minCost, setMinCost] = useState("20");
-  const [maxCost, setMaxCost] = useState("200");
+  const [minCost, setMinCost] = useState("1");
+  const [maxCost, setMaxCost] = useState("10");
   
   // Algorithm selection
   const [selectedAlgo, setSelectedAlgo] = useState<"greedy" | "hungarian">("greedy");
@@ -264,22 +263,25 @@ export default function MinimumCostPage() {
   const fetchHistory = async () => {
     try {
       const response = await fetch("http://localhost:8080/api/mincost/history");
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data);
-      }
+      if (!response.ok) return;
+      const data = await response.json();
+      setHistory(data);
     } catch {
       console.log("History failed to load");
     }
   };
 
   const runGame = async () => {
-    const nValue = Number(n);
     const minValue = Number(minCost);
     const maxValue = Number(maxCost);
 
-    if (!Number.isInteger(nValue) || nValue < 5 || nValue > 100) {
-      setNotify({ show: true, type: "error", title: "Input Error", message: "Size (N) must be between 5 and 100!" });
+    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || minValue < 1 || maxValue < 1 || minValue >= maxValue) {
+      setNotify({
+        show: true,
+        type: "error",
+        title: "Input Error",
+        message: "Enter a valid positive cost range where Min Cost is less than Max Cost.",
+      });
       return;
     }
     
@@ -288,10 +290,22 @@ export default function MinimumCostPage() {
       const response = await fetch("http://localhost:8080/api/mincost/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ n: nValue, minCost: minValue, maxCost: maxValue }),
+        // N is intentionally omitted: backend generates random N in [50,100].
+        body: JSON.stringify({ minCost: minValue, maxCost: maxValue }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Internal server error occurred!");
+      const raw = await response.text();
+      const data = raw ? JSON.parse(raw) : null;
+      if (!response.ok) {
+        const backendMessage =
+          data && typeof data === "object"
+            ? (data as { error?: string; message?: string }).error ??
+              (data as { error?: string; message?: string }).message
+            : null;
+        throw new Error(backendMessage || `Request failed (${response.status})`);
+      }
+      if (!data) {
+        throw new Error("Server returned an empty response.");
+      }
       setResult(data);
       setNotify({ show: true, type: "success", title: "Calculated!", message: "Explore the steps using the playback toolbar." });
     } catch (error) {
@@ -312,7 +326,14 @@ export default function MinimumCostPage() {
         controls={
           <div className="flex flex-col gap-6">
             <div className="space-y-4">
-                <AlgoInput label="Size (N)" type="number" value={n} onChange={setN} required />
+                <div className="rounded-lg border border-blue-500/20 bg-blue-600/10 px-3 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-blue-300 font-mono">
+                    Matrix Size (N)
+                  </p>
+                  <p className="text-[11px] text-blue-100/90 mt-1">
+                    Randomized by backend each run (50-100), as per CW rule.
+                  </p>
+                </div>
                 <AlgoInput label="Min Cost" type="number" value={minCost} onChange={setMinCost} required />
                 <AlgoInput label="Max Cost" type="number" value={maxCost} onChange={setMaxCost} required />
                 
