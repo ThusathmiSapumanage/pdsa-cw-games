@@ -186,8 +186,7 @@ function MatrixTable({
 }
 
 export default function MinimumCostPage() {
-  const [minCost, setMinCost] = useState("1");
-  const [maxCost, setMaxCost] = useState("10");
+  const [n, setN] = useState("50");
   const [selectedAlgo, setSelectedAlgo] = useState<"greedy" | "hungarian">("greedy");
   const [isLoading, setIsLoading] = useState(false);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
@@ -257,27 +256,19 @@ export default function MinimumCostPage() {
   };
 
   const validateInputs = () => {
-    const minValue = Number(minCost);
-    const maxValue = Number(maxCost);
+    const nValue = Number(n);
 
-    if (
-      !Number.isFinite(minValue) ||
-      !Number.isFinite(maxValue) ||
-      minValue < 1 ||
-      maxValue < 1 ||
-      minValue >= maxValue
-    ) {
+    if (!Number.isInteger(nValue) || nValue < 50 || nValue > 100) {
       setNotify({
         show: true,
         type: "error",
         title: "Input Error",
-        message:
-          "Enter a valid positive cost range where Min Cost is less than Max Cost.",
+        message: "Enter a valid N value between 50 and 100.",
       });
       return null;
     }
 
-    return { minValue, maxValue };
+    return { nValue };
   };
 
   const callStartApi = async () => {
@@ -288,8 +279,7 @@ export default function MinimumCostPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        minCost: validated.minValue,
-        maxCost: validated.maxValue,
+        n: validated.nValue,
       }),
     });
 
@@ -386,31 +376,24 @@ export default function MinimumCostPage() {
       <GameLayoutShell
         gameId="02"
         title="MinCost Assignment"
-        description="Optimize worker-task allocation using PDSA algorithms (Hungarian vs Greedy)."
+        description="Optimize task-to-employee allocation using Greedy and Hungarian algorithms."
         controls={
           <div className="flex flex-col gap-6">
             <div className="space-y-4">
               <div className="rounded-lg border border-blue-500/20 bg-blue-600/10 px-3 py-3">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-blue-300">
-                  Matrix Size (N)
+                  Coursework Rules
                 </p>
                 <p className="mt-1 text-[11px] text-blue-100/90">
-                  Randomized by backend each run (50-100), as per CW rule.
+                  Enter N between 50 and 100. The backend automatically generates costs randomly from 20 to 200 for each round.
                 </p>
               </div>
 
               <AlgoInput
-                label="Min Cost"
+                label="Number of Tasks / Employees (N)"
                 type="number"
-                value={minCost}
-                onChange={setMinCost}
-                required
-              />
-              <AlgoInput
-                label="Max Cost"
-                type="number"
-                value={maxCost}
-                onChange={setMaxCost}
+                value={n}
+                onChange={setN}
                 required
               />
 
@@ -608,18 +591,18 @@ export default function MinimumCostPage() {
 
                   <div className="space-y-4 font-mono text-[11px] leading-relaxed text-white/40">
                     <div className="rounded border border-white/5 bg-white/3 p-3">
-                      <p className="mb-1 font-bold text-white/70">Row/Col Reduction</p>
+                      <p className="mb-1 font-bold text-white/70">Greedy Strategy</p>
                       <p>
-                        This phase normalizes costs. The minimum value of each row and
-                        column is subtracted to create zeros for optimal matching.
+                        Greedy repeatedly picks the smallest currently available cost while
+                        making sure each task and employee is used only once.
                       </p>
                     </div>
 
                     <div className="rounded border border-white/5 bg-white/3 p-3">
-                      <p className="mb-1 font-bold text-white/70">Covering Lines</p>
+                      <p className="mb-1 font-bold text-white/70">Hungarian Algorithm</p>
                       <p>
-                        The algorithm covers all zeros with the minimum number of lines.
-                        If lines are fewer than N, delta adjustment creates more zeros.
+                        Hungarian performs row and column reduction, covers zeros, and
+                        adjusts the matrix to find the optimal assignment.
                       </p>
                     </div>
                   </div>
@@ -701,13 +684,15 @@ export default function MinimumCostPage() {
               <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-green-400">
                 Status
               </span>
-              <span className="text-[10px] font-bold text-green-300">
-                {result
-                  ? result.hungarianTotalCost < result.greedyTotalCost
-                    ? "Hungarian Wins!"
-                    : "Greedy Match!"
-                  : "Waiting..."}
-              </span>
+                <span>
+                  {result
+                    ? result.hungarianTotalCost < result.greedyTotalCost
+                      ? "Hungarian Wins!"
+                      : result.hungarianTotalCost > result.greedyTotalCost
+                      ? "Greedy Wins!"
+                      : "Perfect Match!"
+                    : "Waiting..."}
+                </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-4">
