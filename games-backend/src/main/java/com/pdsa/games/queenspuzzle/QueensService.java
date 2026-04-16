@@ -3,6 +3,8 @@ package com.pdsa.games.queenspuzzle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,11 @@ public class QueensService {
 
 	private final QueensRepository repository;
 	private final QueensSolver solver = new QueensSolver();
+
+	private static final ConcurrentMap<String, CachedBenchmark> BENCHMARK_CACHE = new ConcurrentHashMap<>();
+
+	private record CachedBenchmark(int totalSolutions, double sequentialMs, double threadedMs) {
+	}
 
 	public QueensService(QueensRepository repository) {
 		this.repository = repository;
@@ -52,19 +59,30 @@ public class QueensService {
 
 		Long sessionId = repository.createGameSession(gameId, payload.getPlayerId());
 
-		long sequentialStart = System.nanoTime();
-		int sequentialCount = solver.solveSequentialCount(boardSize, queenCount);
-		long sequentialEnd = System.nanoTime();
+		String cacheKey = boardSize + "x" + queenCount;
+		CachedBenchmark benchmark = BENCHMARK_CACHE.get(cacheKey);
+		String threadedStatus = "SUCCESS";
 
-		long threadedStart = System.nanoTime();
-		int threadedCount = solver.solveThreadedCount(boardSize, queenCount);
-		long threadedEnd = System.nanoTime();
+		if (benchmark == null) {
+			long sequentialStart = System.nanoTime();
+			int sequentialCount = solver.solveSequentialCount(boardSize, queenCount);
+			long sequentialEnd = System.nanoTime();
 
-		double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
-		double threadedMs = nanosToMs(threadedEnd - threadedStart);
+			long threadedStart = System.nanoTime();
+			int threadedCount = solver.solveThreadedCount(boardSize, queenCount);
+			long threadedEnd = System.nanoTime();
 
-		int totalSolutions = sequentialCount;
-		String threadedStatus = threadedCount == totalSolutions ? "SUCCESS" : "ERROR";
+			double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
+			double threadedMs = nanosToMs(threadedEnd - threadedStart);
+
+			threadedStatus = threadedCount == sequentialCount ? "SUCCESS" : "ERROR";
+			benchmark = new CachedBenchmark(sequentialCount, sequentialMs, threadedMs);
+			BENCHMARK_CACHE.put(cacheKey, benchmark);
+		}
+
+		int totalSolutions = benchmark.totalSolutions();
+		double sequentialMs = benchmark.sequentialMs();
+		double threadedMs = benchmark.threadedMs();
 
 		repository.saveSixteenQueensGame(sessionId, totalSolutions);
 		repository.saveAlgorithmExecution(sessionId, sequentialId, sequentialMs, "SUCCESS");
