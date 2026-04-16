@@ -10,6 +10,7 @@ interface GameLayoutShellProps {
   controls: ReactNode;
   visualization: ReactNode;
   results?: ReactNode;
+  bottomSection?: ReactNode;
 }
 
 export default function GameLayoutShell({
@@ -19,6 +20,7 @@ export default function GameLayoutShell({
   controls,
   visualization,
   results,
+  bottomSection,
 }: GameLayoutShellProps) {
   const vizRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -123,6 +125,8 @@ export default function GameLayoutShell({
           </div>
         </div>
       </div>
+
+      {bottomSection ? <div className="mt-8">{bottomSection}</div> : null}
     </div>
   );
 }
