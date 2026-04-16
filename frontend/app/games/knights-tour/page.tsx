@@ -467,7 +467,7 @@ export default function KnightsTourPage() {
   return (
     <AuthGate>
       <GameLayoutShell
-        gameId="08"
+        gameId="04"
         title="Knight's Tour"
         description="Build a complete knight path, validate it, and compare it with the generated algorithm solutions."
         controls={

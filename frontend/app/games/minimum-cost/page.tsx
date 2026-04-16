@@ -374,7 +374,7 @@ export default function MinimumCostPage() {
   return (
     <AuthGate>
       <GameLayoutShell
-        gameId="02"
+        gameId="01"
         title="MinCost Assignment"
         description="Optimize task-to-employee allocation using Greedy and Hungarian algorithms."
         controls={
