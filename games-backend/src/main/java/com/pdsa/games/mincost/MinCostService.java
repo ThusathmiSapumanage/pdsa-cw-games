@@ -98,22 +98,17 @@ public class MinCostService {
             // A. Ensure 'Minimum Cost' game is in the master table
             repository.registerGame();
             Integer gameId = repository.findGameId();
-
             // B. Ensure algorithms are in the master table
             Integer greedyId = repository.ensureAlgorithm(gameId, "Minimum Cost - Greedy");
             Integer hungarianId = repository.ensureAlgorithm(gameId, "Minimum Cost - Hungarian");
-
             // C. Create a session for this play
             Long playerId = (request.getPlayerId() != null) ? request.getPlayerId() : 1L;
             Long sessionId = repository.createSession(gameId, playerId);
-
             // D. Save the MinCost summary
             repository.saveMinCostGame(sessionId, n, hungarian.totalCost());
-
             // E. Log execution times
             repository.saveExecution(sessionId, greedyId, (double) greedy.assignments().size() * 0.1); // Simulated/Measured
             repository.saveExecution(sessionId, hungarianId, (double) hungarian.assignments().size() * 0.5); // Simulated/Measured
-
         } catch (Exception e) {
             // If DB fails, we log it but don't crash the game for the presentation
             System.err.println("DB Warning: Could not save game stats! " + e.getMessage());
