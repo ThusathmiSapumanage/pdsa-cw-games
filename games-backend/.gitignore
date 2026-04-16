@@ -60,3 +60,7 @@ HELP.md
 # Misc
 .DS_Store
 Thumbs.db
+
+.m2/
+target/
+*.jar
