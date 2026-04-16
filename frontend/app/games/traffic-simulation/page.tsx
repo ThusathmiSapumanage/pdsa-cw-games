@@ -492,10 +492,20 @@ export default function TrafficSimulationPage() {
         Status: <span className="text-yellow-400">{status}</span>
       </p>
       <p>
-        Dinic: {dinicRun ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)` : "--"}
+        Dinic:{" "}
+        {dinicRun
+          ? submission
+            ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)`
+            : `Pending (${Number(dinicRun.timeMs).toFixed(3)} ms)`
+          : "--"}
       </p>
       <p>
-        Ford: {fordRun ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)` : "--"}
+        Ford:{" "}
+        {fordRun
+          ? submission
+            ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)`
+            : `Pending (${Number(fordRun.timeMs).toFixed(3)} ms)`
+          : "--"}
       </p>
       <p>Bottleneck threshold: {bottleneckThreshold || "--"}</p>
       <p>
