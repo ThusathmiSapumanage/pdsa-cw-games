@@ -39,3 +39,4 @@ pnpm-debug.log*
 traffic*.md
 data.sql
 application.properties
+games-backend/.m2/
