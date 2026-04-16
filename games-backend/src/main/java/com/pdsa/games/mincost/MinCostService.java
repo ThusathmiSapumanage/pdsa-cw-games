@@ -11,9 +11,8 @@ import com.pdsa.games.mincost.service.GreedyAssignmentService;
 import com.pdsa.games.mincost.service.HungarianAssignmentService;
 
 /**
- * MIN COST SERVICE (The Orchestrator):
- * This file coordinates everything for the Minimum Cost game.
- * It uses the Algorithms to solve the math and the Repository to save data.
+ * MIN COST SERVICE:
+ * Coordinates validation, matrix generation, algorithm execution, and persistence.
  */
 @Service
 public class MinCostService {
@@ -24,36 +23,31 @@ public class MinCostService {
     private final Random random = new Random();
 
     public MinCostService(GreedyAssignmentService greedyService,
-            HungarianAssignmentService hungarianService,
-            MinCostRepository repository) {
+                          HungarianAssignmentService hungarianService,
+                          MinCostRepository repository) {
         this.greedyService = greedyService;
         this.hungarianService = hungarianService;
         this.repository = repository;
     }
 
-    /**
-     * MAIN GAME ENTRY POINT:
-     * Generates a matrix, runs algorithms, and saves everything to DB.
-     * Transactional ensures that if saving fails, everything rolls back.
-     */
     @Transactional
     public MinCostModel.GameResponse startGame(MinCostModel.StartRequest request) {
-        // 1. Validation (The "Defensive" part)
         int n = pickN(request.getN());
-        int minCost = (request.getMinCost() != null) ? request.getMinCost() : 10;
-        int maxCost = (request.getMaxCost() != null) ? request.getMaxCost() : 90;
+        int minCost = (request.getMinCost() != null) ? request.getMinCost() : 20;
+        int maxCost = (request.getMaxCost() != null) ? request.getMaxCost() : 200;
 
-        if (n < 5 || n > 100) {
-            throw new IllegalArgumentException("Matrix size N must be between 5 and 100.");
-        }
-        if (minCost < 1 || maxCost > 1000 || minCost >= maxCost) {
-            throw new IllegalArgumentException("Invalid cost range. Costs must be between 1 and 1000.");
+        if (n < 50 || n > 100) {
+            throw new IllegalArgumentException("Matrix size N must be between 50 and 100.");
         }
 
-        // 2. Generate the cost matrix
+        if (minCost < 20 || maxCost > 200 || minCost >= maxCost) {
+            throw new IllegalArgumentException(
+                    "Cost range must be between 20 and 200, and Min Cost must be less than Max Cost."
+            );
+        }
+
         int[][] matrix = generateMatrix(n, minCost, maxCost);
 
-        // 3. Solve using both strategies
         long greedyStart = System.nanoTime();
         AlgorithmSolveResult greedyResult = greedyService.solve(matrix);
         long greedyEnd = System.nanoTime();
@@ -65,10 +59,8 @@ public class MinCostService {
         double greedyTimeMs = nanosToMs(greedyEnd - greedyStart);
         double hungarianTimeMs = nanosToMs(hungarianEnd - hungarianStart);
 
-        // 4. Persistence (Database Logic moved to Repository)
-        saveGameRun(request, n, greedyResult, hungarianResult);
+        saveGameRun(request, n, greedyResult, hungarianResult, greedyTimeMs, hungarianTimeMs);
 
-        // 5. Build the final response object
         return new MinCostModel.GameResponse(
                 matrix,
                 greedyResult.assignments(),
@@ -79,38 +71,35 @@ public class MinCostService {
                 hungarianResult.totalCost(),
                 greedyTimeMs,
                 hungarianTimeMs,
-                hungarianResult.hungarianSteps());
+                hungarianResult.hungarianSteps()
+        );
     }
 
-    /**
-     * Fetches historical performance data for charts.
-     */
     public List<MinCostModel.HistoryItem> getHistory() {
         return repository.getHistory();
     }
 
-    /**
-     * COORDINATOR: Registers the game, session, and results in the DB.
-     */
-    private void saveGameRun(MinCostModel.StartRequest request, int n,
-            AlgorithmSolveResult greedy, AlgorithmSolveResult hungarian) {
+    private void saveGameRun(MinCostModel.StartRequest request,
+                             int n,
+                             AlgorithmSolveResult greedy,
+                             AlgorithmSolveResult hungarian,
+                             double greedyTimeMs,
+                             double hungarianTimeMs) {
         try {
-            // A. Ensure 'Minimum Cost' game is in the master table
             repository.registerGame();
             Integer gameId = repository.findGameId();
-            // B. Ensure algorithms are in the master table
+
             Integer greedyId = repository.ensureAlgorithm(gameId, "Minimum Cost - Greedy");
             Integer hungarianId = repository.ensureAlgorithm(gameId, "Minimum Cost - Hungarian");
-            // C. Create a session for this play
+
             Long playerId = (request.getPlayerId() != null) ? request.getPlayerId() : 1L;
             Long sessionId = repository.createSession(gameId, playerId);
-            // D. Save the MinCost summary
+
             repository.saveMinCostGame(sessionId, n, hungarian.totalCost());
-            // E. Log execution times
-            repository.saveExecution(sessionId, greedyId, (double) greedy.assignments().size() * 0.1); // Simulated/Measured
-            repository.saveExecution(sessionId, hungarianId, (double) hungarian.assignments().size() * 0.5); // Simulated/Measured
+
+            repository.saveExecution(sessionId, greedyId, greedyTimeMs);
+            repository.saveExecution(sessionId, hungarianId, hungarianTimeMs);
         } catch (Exception e) {
-            // If DB fails, we log it but don't crash the game for the presentation
             System.err.println("DB Warning: Could not save game stats! " + e.getMessage());
         }
     }
@@ -124,8 +113,8 @@ public class MinCostService {
         }
         return matrix;
     }
+
     private int pickN(Integer requestedN) {
-        // CW rule: if N is not provided, generate random N in [50, 100].
         if (requestedN != null) {
             return requestedN;
         }
