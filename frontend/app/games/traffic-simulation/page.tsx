@@ -370,27 +370,6 @@ export default function TrafficSimulationPage() {
 
   const visualization = (
     <div className="custom-scrollbar flex h-full flex-col gap-5 overflow-auto pr-1">
-      {benchmarkData.length > 0 && (
-        <PerformanceRunChart
-          title="20-Round Performance Chart"
-          data={benchmarkData}
-          series={[
-            {
-              key: "ford",
-              label: "Ford-Fulkerson",
-              colorClass: "bg-amber-400",
-              stroke: "#fbbf24",
-            },
-            {
-              key: "dinic",
-              label: "Dinic",
-              colorClass: "bg-blue-400",
-              stroke: "#60a5fa",
-            },
-          ]}
-        />
-      )}
-
       <div className="h-[500px] w-full rounded-xl border border-blue-500/20 bg-blue-500/[0.03] p-4">
         <svg viewBox="0 0 810 430" className="h-full w-full">
           <defs>
@@ -486,16 +465,50 @@ export default function TrafficSimulationPage() {
     </div>
   );
 
+  const benchmarkChart =
+    benchmarkData.length > 0 ? (
+      <div className="rounded-xl border border-white/5 bg-[#0a0a0a] p-8">
+        <PerformanceRunChart
+          title="20-Round Performance Chart"
+          data={benchmarkData}
+          series={[
+            {
+              key: "ford",
+              label: "Ford-Fulkerson",
+              colorClass: "bg-amber-400",
+              stroke: "#fbbf24",
+            },
+            {
+              key: "dinic",
+              label: "Dinic",
+              colorClass: "bg-blue-400",
+              stroke: "#60a5fa",
+            },
+          ]}
+        />
+      </div>
+    ) : null;
+
   const results = (
     <div className="flex flex-col gap-2 font-mono text-[10px] text-white/70">
       <p>
         Status: <span className="text-yellow-400">{status}</span>
       </p>
       <p>
-        Dinic: {dinicRun ? `${dinicRun.maxFlow} (${Number(dinicRun.timeMs).toFixed(3)} ms)` : "--"}
+        Dinic:{" "}
+        {dinicRun
+          ? submission
+            ? `${dinicRun?.maxFlow} (${Number(dinicRun?.timeMs).toFixed(3)} ms)`
+            : `Pending (${Number(dinicRun?.timeMs).toFixed(3)} ms)`
+          : "--"}
       </p>
       <p>
-        Ford: {fordRun ? `${fordRun.maxFlow} (${Number(fordRun.timeMs).toFixed(3)} ms)` : "--"}
+        Ford:{" "}
+        {fordRun
+          ? submission
+            ? `${fordRun?.maxFlow} (${Number(fordRun?.timeMs).toFixed(3)} ms)`
+            : `Pending (${Number(fordRun?.timeMs).toFixed(3)} ms)`
+          : "--"}
       </p>
       <p>Bottleneck threshold: {bottleneckThreshold || "--"}</p>
       <p>
@@ -577,6 +590,7 @@ export default function TrafficSimulationPage() {
         controls={controls}
         visualization={visualization}
         results={results}
+        bottomSection={benchmarkChart}
       />
     </AuthGate>
   );
