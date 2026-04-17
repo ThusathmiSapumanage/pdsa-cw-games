@@ -28,8 +28,6 @@ type GamePhase =
   | "complete";
 
 export default function QueensPuzzleGame() {
-  const [playerIdInput, setPlayerIdInput] = useState("");
-  const [activePlayerId, setActivePlayerId] = useState<number | null>(null);
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [roundData, setRoundData] = useState<StartResponse | null>(null);
   const [queens, setQueens] = useState<Position[]>([]);
@@ -39,12 +37,6 @@ export default function QueensPuzzleGame() {
   const [error, setError] = useState("");
 
   const handleStartRound = useCallback(async () => {
-    const parsedPlayerId = Number(playerIdInput);
-    if (!parsedPlayerId || parsedPlayerId <= 0) {
-      setError("Please enter a valid player ID.");
-      return;
-    }
-
     setError("");
     setLastResult(null);
     setQueens([]);
@@ -52,12 +44,10 @@ export default function QueensPuzzleGame() {
 
     try {
       const response = await startQueensRound({
-        playerId: parsedPlayerId,
         boardSize: BOARD_SIZE,
         queenCount: QUEEN_COUNT,
       });
       setRoundData(response);
-      setActivePlayerId(parsedPlayerId);
       setTotalSolutions(response.totalSolutions);
       setDiscovered(0);
       setPhase("ready");
@@ -67,7 +57,7 @@ export default function QueensPuzzleGame() {
       );
       setPhase("idle");
     }
-  }, [playerIdInput]);
+  }, []);
 
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -100,7 +90,7 @@ export default function QueensPuzzleGame() {
   }, [phase]);
 
   const handleSubmit = useCallback(async () => {
-    if (!roundData || !activePlayerId) {
+    if (!roundData) {
       setError("Start a round first.");
       return;
     }
@@ -115,7 +105,6 @@ export default function QueensPuzzleGame() {
     try {
       const response = await submitQueensAnswer({
         sessionId: roundData.sessionId,
-        playerId: activePlayerId,
         queens,
       });
       setLastResult(response);
@@ -135,11 +124,10 @@ export default function QueensPuzzleGame() {
       );
       setPhase("ready");
     }
-  }, [roundData, activePlayerId, queens]);
+  }, [roundData, queens]);
 
   const handleNewRound = useCallback(() => {
     setRoundData(null);
-    setActivePlayerId(null);
     setQueens([]);
     setLastResult(null);
     setDiscovered(0);
@@ -155,19 +143,6 @@ export default function QueensPuzzleGame() {
     <div className="flex flex-col gap-6">
       {phase === "idle" && (
         <>
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-2 block">
-              Player ID
-            </label>
-            <input
-              type="number"
-              value={playerIdInput}
-              onChange={(e) => setPlayerIdInput(e.target.value)}
-              placeholder="Enter player ID"
-              className="w-full py-3 bg-transparent border-b border-white/10 text-white text-sm outline-none focus:border-blue-600 transition-colors"
-            />
-          </div>
-
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
             Backend counts all valid placements of {QUEEN_COUNT} queens on a{" "}
             {BOARD_SIZE}×{BOARD_SIZE} board using sequential and threaded
@@ -255,7 +230,7 @@ export default function QueensPuzzleGame() {
             Ready to Deploy
           </span>
           <p className="text-sm leading-relaxed mb-6">
-            Enter your Player ID and click{" "}
+            Click{" "}
             <span className="text-blue-400 font-bold">Deploy Queens</span> to
             begin. The solver will calculate all valid {QUEEN_COUNT}-queen
             placements on a {BOARD_SIZE}×{BOARD_SIZE} board.

@@ -20,7 +20,6 @@ public class QueensModel {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	public static class StartRequest {
-		private Long playerId;
 		private Integer boardSize;
 		private Integer queenCount;
 	}
@@ -43,7 +42,6 @@ public class QueensModel {
 	@AllArgsConstructor
 	public static class SubmitRequest {
 		private Long sessionId;
-		private Long playerId;
 		private List<Position> queens;
 	}
 

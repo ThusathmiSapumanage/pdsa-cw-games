@@ -6,8 +6,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class QueensService {
@@ -33,18 +35,12 @@ public class QueensService {
 	}
 
 	@Transactional
-	public QueensModel.StartResponse startRound(QueensModel.StartRequest request) {
+	public QueensModel.StartResponse startRound(QueensModel.StartRequest request, String authenticatedEmail) {
+		Long playerId = resolveAuthenticatedPlayerId(authenticatedEmail);
+
 		QueensModel.StartRequest payload = request == null
-				? new QueensModel.StartRequest(null, null, null)
+				? new QueensModel.StartRequest(null, null)
 				: request;
-
-		if (payload.getPlayerId() == null || payload.getPlayerId() <= 0) {
-			throw new IllegalArgumentException("Valid playerId is required.");
-		}
-
-		if (!repository.playerExists(payload.getPlayerId())) {
-			throw new IllegalArgumentException("Player does not exist.");
-		}
 
 		Integer boardSizeValue = payload.getBoardSize();
 		Integer queenCountValue = payload.getQueenCount();
@@ -57,7 +53,7 @@ public class QueensService {
 		Integer sequentialId = repository.ensureAlgorithmId(gameId, SEQUENTIAL_NAME);
 		Integer threadedId = repository.ensureAlgorithmId(gameId, THREADED_NAME);
 
-		Long sessionId = repository.createGameSession(gameId, payload.getPlayerId());
+		Long sessionId = repository.createGameSession(gameId, playerId);
 
 		String cacheKey = boardSize + "x" + queenCount;
 		CachedBenchmark benchmark = BENCHMARK_CACHE.get(cacheKey);
@@ -101,7 +97,7 @@ public class QueensService {
 	}
 
 	@Transactional
-	public QueensModel.SubmitResponse submitAnswer(QueensModel.SubmitRequest request) {
+	public QueensModel.SubmitResponse submitAnswer(QueensModel.SubmitRequest request, String authenticatedEmail) {
 		if (request == null) {
 			throw new IllegalArgumentException("Request payload is required.");
 		}
@@ -110,16 +106,10 @@ public class QueensService {
 			throw new IllegalArgumentException("Valid sessionId is required.");
 		}
 
-		if (request.getPlayerId() == null || request.getPlayerId() <= 0) {
-			throw new IllegalArgumentException("Valid playerId is required.");
-		}
+		Long playerId = resolveAuthenticatedPlayerId(authenticatedEmail);
 
-		if (!repository.playerExists(request.getPlayerId())) {
-			throw new IllegalArgumentException("Player does not exist.");
-		}
-
-		if (!repository.sessionBelongsToPlayer(request.getSessionId(), request.getPlayerId())) {
-			throw new IllegalArgumentException("This session does not belong to the given player.");
+		if (!repository.sessionBelongsToPlayer(request.getSessionId(), playerId)) {
+			throw new IllegalArgumentException("This session does not belong to the authenticated player.");
 		}
 
 		Integer totalSolutions = repository.getTotalSolutions(request.getSessionId());
@@ -133,12 +123,12 @@ public class QueensService {
 		try {
 			validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
 		} catch (IllegalArgumentException ex) {
-			String responseSummary = buildResponseSummary(request.getPlayerId(), "INCORRECT");
+			String responseSummary = buildResponseSummary(playerId, "INCORRECT");
 			repository.saveResponse(request.getSessionId(), responseSummary, false);
 
 			return new QueensModel.SubmitResponse(
 					request.getSessionId(),
-					request.getPlayerId(),
+					playerId,
 					false,
 					false,
 					discovered,
@@ -152,7 +142,7 @@ public class QueensService {
 		if (existingSolutionId != null) {
 			return new QueensModel.SubmitResponse(
 					request.getSessionId(),
-					request.getPlayerId(),
+					playerId,
 					true,
 					true,
 					discovered,
@@ -164,7 +154,7 @@ public class QueensService {
 		int newSolutionId = repository.insertDiscoveredSolution(request.getSessionId(), positions);
 		int updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
 
-		String responseSummary = buildResponseSummary(request.getPlayerId(), "SOLUTION_" + newSolutionId);
+		String responseSummary = buildResponseSummary(playerId, "SOLUTION_" + newSolutionId);
 		repository.saveResponse(request.getSessionId(), responseSummary, true);
 
 		String message = "Correct solution recorded.";
@@ -176,7 +166,7 @@ public class QueensService {
 
 		return new QueensModel.SubmitResponse(
 				request.getSessionId(),
-				request.getPlayerId(),
+				playerId,
 				true,
 				false,
 				updatedDiscovered,
@@ -186,18 +176,15 @@ public class QueensService {
 	}
 
 	@Transactional(readOnly = true)
-	public QueensModel.StatusResponse getStatus(Long sessionId, Long playerId) {
+	public QueensModel.StatusResponse getStatus(Long sessionId, String authenticatedEmail) {
 		if (sessionId == null || sessionId <= 0) {
 			throw new IllegalArgumentException("Valid sessionId is required.");
 		}
-		if (playerId == null || playerId <= 0) {
-			throw new IllegalArgumentException("Valid playerId is required.");
-		}
-		if (!repository.playerExists(playerId)) {
-			throw new IllegalArgumentException("Player does not exist.");
-		}
+
+		Long playerId = resolveAuthenticatedPlayerId(authenticatedEmail);
+
 		if (!repository.sessionBelongsToPlayer(sessionId, playerId)) {
-			throw new IllegalArgumentException("This session does not belong to the given player.");
+			throw new IllegalArgumentException("This session does not belong to the authenticated player.");
 		}
 
 		Integer totalSolutions = repository.getTotalSolutions(sessionId);
@@ -212,6 +199,20 @@ public class QueensService {
 		response.setSolutionsDiscovered(discovered);
 		response.setMessage("Sixteen Queens progress loaded.");
 		return response;
+	}
+
+	private Long resolveAuthenticatedPlayerId(String authenticatedEmail) {
+		if (authenticatedEmail == null || authenticatedEmail.isBlank()) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is missing.");
+		}
+
+		Long playerId = repository.findPlayerIdByEmail(authenticatedEmail);
+		if (playerId == null || !repository.playerExists(playerId)) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+					"Authenticated player does not exist. Make sure the logged-in user's email exists in Player.Player_Email.");
+		}
+
+		return playerId;
 	}
 
 	private void validateBoardConfig(int boardSize, int queenCount) {

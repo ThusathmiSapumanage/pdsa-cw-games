@@ -4,7 +4,6 @@ export type Position = {
 };
 
 export type StartRequest = {
-  playerId: number;
   boardSize: number;
   queenCount: number;
 };
@@ -21,7 +20,6 @@ export type StartResponse = {
 
 export type SubmitRequest = {
   sessionId: number;
-  playerId: number;
   queens: Position[];
 };
 

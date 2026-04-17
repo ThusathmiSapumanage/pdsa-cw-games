@@ -1,5 +1,6 @@
 package com.pdsa.games.queenspuzzle;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -18,6 +19,18 @@ public class QueensRepository {
 
 	public QueensRepository(JdbcTemplate jdbcTemplate) {
 		this.jdbcTemplate = jdbcTemplate;
+	}
+
+	public Long findPlayerIdByEmail(String playerEmail) {
+		try {
+			return jdbcTemplate.queryForObject(
+					"SELECT Player_Id FROM Player WHERE Player_Email = ?",
+					Long.class,
+					playerEmail
+			);
+		} catch (EmptyResultDataAccessException ex) {
+			return null;
+		}
 	}
 
 	public boolean playerExists(Long playerId) {
