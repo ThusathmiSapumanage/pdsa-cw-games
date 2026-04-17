@@ -68,10 +68,9 @@ export async function submitQueensAnswer(
 
 export async function getQueensStatus(
   sessionId: number,
-  playerId: number,
 ): Promise<StatusResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/sixteen-queens/${sessionId}/status?playerId=${playerId}`,
+    `${API_BASE_URL}/sixteen-queens/${sessionId}/status`,
     {
       method: "GET",
       headers: authHeaders(),

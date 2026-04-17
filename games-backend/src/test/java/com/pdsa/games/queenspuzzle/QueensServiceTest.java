@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,6 +26,8 @@ import static org.mockito.Mockito.when;
 
 class QueensServiceTest {
 
+    private static final String EMAIL = "rajitha@test.com";
+
     private QueensRepository repository;
     private QueensService service;
 
@@ -34,17 +37,22 @@ class QueensServiceTest {
         service = new QueensService(repository);
     }
 
+    private void stubAuthenticatedPlayer() {
+        when(repository.findPlayerIdByEmail(EMAIL)).thenReturn(1L);
+        when(repository.playerExists(1L)).thenReturn(true);
+    }
+
     // ================= START ROUND =================
 
     @Test
     void startRound_shouldCreateRoundSuccessfully() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.ensureGameId(anyString())).thenReturn(10);
         when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
         when(repository.createGameSession(10, 1L)).thenReturn(100L);
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(1L, 4, 4);
-        QueensModel.StartResponse response = service.startRound(request);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(4, 4);
+        QueensModel.StartResponse response = service.startRound(request, EMAIL);
 
         assertNotNull(response);
         assertEquals(100L, response.getSessionId());
@@ -57,40 +65,38 @@ class QueensServiceTest {
     }
 
     @Test
-    void startRound_shouldThrow_whenPlayerIdMissing() {
-        QueensModel.StartRequest request = new QueensModel.StartRequest(null, 4, 4);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.startRound(request));
-        assertEquals("Valid playerId is required.", ex.getMessage());
+    void startRound_shouldThrow_whenEmailIsBlank() {
+        QueensModel.StartRequest request = new QueensModel.StartRequest(4, 4);
+        assertThrows(ResponseStatusException.class,
+                () -> service.startRound(request, "   "));
     }
 
     @Test
     void startRound_shouldThrow_whenPlayerDoesNotExist() {
-        when(repository.playerExists(1L)).thenReturn(false);
+        when(repository.findPlayerIdByEmail(EMAIL)).thenReturn(null);
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(1L, 4, 4);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.startRound(request));
-        assertEquals("Player does not exist.", ex.getMessage());
+        QueensModel.StartRequest request = new QueensModel.StartRequest(4, 4);
+        assertThrows(ResponseStatusException.class,
+                () -> service.startRound(request, EMAIL));
     }
 
     @Test
     void startRound_shouldThrow_whenBoardSizeBelowMinimum() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(1L, 3, 3);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(3, 3);
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.startRound(request));
+                () -> service.startRound(request, EMAIL));
         assertTrue(ex.getMessage().contains("Board size"));
     }
 
     @Test
     void startRound_shouldThrow_whenQueenCountExceedsBoardSize() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(1L, 4, 5);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(4, 5);
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.startRound(request));
+                () -> service.startRound(request, EMAIL));
         assertTrue(ex.getMessage().contains("Queen count"));
     }
 
@@ -98,7 +104,7 @@ class QueensServiceTest {
 
     @Test
     void submitAnswer_shouldRecordCorrectSolution() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(14772512);
         when(repository.getDiscoveredCount(100L)).thenReturn(0, 1);
@@ -106,8 +112,8 @@ class QueensServiceTest {
         when(repository.insertDiscoveredSolution(eq(100L), any())).thenReturn(1);
         when(repository.findPlayerName(1L)).thenReturn("Rajitha");
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, validSolution());
-        QueensModel.SubmitResponse response = service.submitAnswer(request);
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, validSolution());
+        QueensModel.SubmitResponse response = service.submitAnswer(request, EMAIL);
 
         assertTrue(response.getCorrect());
         assertFalse(response.getAlreadyDiscovered());
@@ -118,14 +124,14 @@ class QueensServiceTest {
 
     @Test
     void submitAnswer_shouldFlagAlreadyDiscovered() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(14772512);
         when(repository.getDiscoveredCount(100L)).thenReturn(1);
         when(repository.findMatchingSolutionId(eq(100L), any())).thenReturn(7);
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, validSolution());
-        QueensModel.SubmitResponse response = service.submitAnswer(request);
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, validSolution());
+        QueensModel.SubmitResponse response = service.submitAnswer(request, EMAIL);
 
         assertTrue(response.getCorrect());
         assertTrue(response.getAlreadyDiscovered());
@@ -134,7 +140,7 @@ class QueensServiceTest {
 
     @Test
     void submitAnswer_shouldReturnIncorrect_whenStructureInvalid() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(14772512);
         when(repository.getDiscoveredCount(100L)).thenReturn(0);
@@ -143,8 +149,8 @@ class QueensServiceTest {
         List<QueensModel.Position> conflicting = new ArrayList<>(validSolution());
         conflicting.set(0, new QueensModel.Position(1, 2));
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, conflicting);
-        QueensModel.SubmitResponse response = service.submitAnswer(request);
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, conflicting);
+        QueensModel.SubmitResponse response = service.submitAnswer(request, EMAIL);
 
         assertFalse(response.getCorrect());
         assertFalse(response.getAlreadyDiscovered());
@@ -155,7 +161,7 @@ class QueensServiceTest {
 
     @Test
     void submitAnswer_shouldResetDiscovered_whenAllSolutionsFound() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(1);
         when(repository.getDiscoveredCount(100L)).thenReturn(0, 1);
@@ -163,8 +169,8 @@ class QueensServiceTest {
         when(repository.insertDiscoveredSolution(eq(100L), any())).thenReturn(1);
         when(repository.findPlayerName(1L)).thenReturn("Rajitha");
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, validSolution());
-        QueensModel.SubmitResponse response = service.submitAnswer(request);
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, validSolution());
+        QueensModel.SubmitResponse response = service.submitAnswer(request, EMAIL);
 
         assertTrue(response.getCorrect());
         assertEquals(0, response.getSolutionsDiscovered());
@@ -174,35 +180,35 @@ class QueensServiceTest {
 
     @Test
     void submitAnswer_shouldThrow_whenSessionDoesNotBelongToPlayer() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(false);
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, validSolution());
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, validSolution());
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service.submitAnswer(request));
+                () -> service.submitAnswer(request, EMAIL));
         assertTrue(ex.getMessage().contains("session does not belong"));
     }
 
     @Test
     void submitAnswer_shouldThrow_whenGameConfigMissing() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(null);
 
-        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, 1L, validSolution());
-        assertThrows(IllegalStateException.class, () -> service.submitAnswer(request));
+        QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(100L, validSolution());
+        assertThrows(IllegalStateException.class, () -> service.submitAnswer(request, EMAIL));
     }
 
     // ================= STATUS =================
 
     @Test
     void getStatus_shouldReturnProgress() {
-        when(repository.playerExists(1L)).thenReturn(true);
+        stubAuthenticatedPlayer();
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
         when(repository.getTotalSolutions(100L)).thenReturn(14772512);
         when(repository.getDiscoveredCount(100L)).thenReturn(42);
 
-        QueensModel.StatusResponse response = service.getStatus(100L, 1L);
+        QueensModel.StatusResponse response = service.getStatus(100L, EMAIL);
 
         assertEquals(100L, response.getSessionId());
         assertEquals(14772512, response.getTotalSolutions());
@@ -211,7 +217,7 @@ class QueensServiceTest {
 
     @Test
     void getStatus_shouldThrow_whenSessionIdInvalid() {
-        assertThrows(IllegalArgumentException.class, () -> service.getStatus(0L, 1L));
+        assertThrows(IllegalArgumentException.class, () -> service.getStatus(0L, EMAIL));
     }
 
     // 16x16 valid solution (one of the 14M+) — placed by row, columns:
