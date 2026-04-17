@@ -3,6 +3,8 @@ package com.pdsa.games.queenspuzzle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class QueensService {
 
 	private static final int DEFAULT_BOARD_SIZE = 16;
-	private static final int DEFAULT_QUEEN_COUNT = 8;
+	private static final int DEFAULT_QUEEN_COUNT = 16;
+	private static final int MAX_BOARD_SIZE = 16;
 
 	private static final String GAME_NAME = "Sixteen Queens Puzzle";
 	private static final String SEQUENTIAL_NAME = "Sixteen Queens - Sequential";
@@ -19,6 +22,11 @@ public class QueensService {
 
 	private final QueensRepository repository;
 	private final QueensSolver solver = new QueensSolver();
+
+	private static final ConcurrentMap<String, CachedBenchmark> BENCHMARK_CACHE = new ConcurrentHashMap<>();
+
+	private record CachedBenchmark(int totalSolutions, double sequentialMs, double threadedMs) {
+	}
 
 	public QueensService(QueensRepository repository) {
 		this.repository = repository;
@@ -51,22 +59,32 @@ public class QueensService {
 
 		Long sessionId = repository.createGameSession(gameId, payload.getPlayerId());
 
-		long sequentialStart = System.nanoTime();
-		List<int[]> solutions = solver.solveSequential(boardSize, queenCount);
-		long sequentialEnd = System.nanoTime();
+		String cacheKey = boardSize + "x" + queenCount;
+		CachedBenchmark benchmark = BENCHMARK_CACHE.get(cacheKey);
+		String threadedStatus = "SUCCESS";
 
-		long threadedStart = System.nanoTime();
-		int threadedCount = solver.solveThreadedCount(boardSize, queenCount);
-		long threadedEnd = System.nanoTime();
+		if (benchmark == null) {
+			long sequentialStart = System.nanoTime();
+			int sequentialCount = solver.solveSequentialCount(boardSize, queenCount);
+			long sequentialEnd = System.nanoTime();
 
-		double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
-		double threadedMs = nanosToMs(threadedEnd - threadedStart);
+			long threadedStart = System.nanoTime();
+			int threadedCount = solver.solveThreadedCount(boardSize, queenCount);
+			long threadedEnd = System.nanoTime();
 
-		int totalSolutions = solutions.size();
-		String threadedStatus = threadedCount == totalSolutions ? "SUCCESS" : "ERROR";
+			double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
+			double threadedMs = nanosToMs(threadedEnd - threadedStart);
+
+			threadedStatus = threadedCount == sequentialCount ? "SUCCESS" : "ERROR";
+			benchmark = new CachedBenchmark(sequentialCount, sequentialMs, threadedMs);
+			BENCHMARK_CACHE.put(cacheKey, benchmark);
+		}
+
+		int totalSolutions = benchmark.totalSolutions();
+		double sequentialMs = benchmark.sequentialMs();
+		double threadedMs = benchmark.threadedMs();
 
 		repository.saveSixteenQueensGame(sessionId, totalSolutions);
-		repository.saveSolutions(sessionId, solutions);
 		repository.saveAlgorithmExecution(sessionId, sequentialId, sequentialMs, "SUCCESS");
 		repository.saveAlgorithmExecution(sessionId, threadedId, threadedMs, threadedStatus);
 
@@ -111,10 +129,10 @@ public class QueensService {
 		}
 
 		List<QueensModel.Position> positions = normalizePositions(request.getQueens());
-		validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
 
-		Integer solutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
-		if (solutionId == null) {
+		try {
+			validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
+		} catch (IllegalArgumentException ex) {
 			String responseSummary = buildResponseSummary(request.getPlayerId(), "INCORRECT");
 			repository.saveResponse(request.getSessionId(), responseSummary, false);
 
@@ -125,11 +143,13 @@ public class QueensService {
 					false,
 					discovered,
 					totalSolutions,
-					"Incorrect solution. Try again."
+					"Incorrect solution: " + ex.getMessage()
 			);
 		}
 
-		if (repository.isSolutionDiscovered(request.getSessionId(), solutionId)) {
+		Integer existingSolutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
+
+		if (existingSolutionId != null) {
 			return new QueensModel.SubmitResponse(
 					request.getSessionId(),
 					request.getPlayerId(),
@@ -137,14 +157,14 @@ public class QueensService {
 					true,
 					discovered,
 					totalSolutions,
-					"This solution was already recognized. Try a different one."
+					"This solution was already discovered. Try a different one."
 			);
 		}
 
-		repository.markSolutionDiscovered(request.getSessionId(), solutionId);
+		int newSolutionId = repository.insertDiscoveredSolution(request.getSessionId(), positions);
 		int updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
 
-		String responseSummary = buildResponseSummary(request.getPlayerId(), "SOLUTION_" + solutionId);
+		String responseSummary = buildResponseSummary(request.getPlayerId(), "SOLUTION_" + newSolutionId);
 		repository.saveResponse(request.getSessionId(), responseSummary, true);
 
 		String message = "Correct solution recorded.";
@@ -195,11 +215,11 @@ public class QueensService {
 	}
 
 	private void validateBoardConfig(int boardSize, int queenCount) {
-		if (boardSize != DEFAULT_BOARD_SIZE) {
-			throw new IllegalArgumentException("Board size must be 16.");
+		if (boardSize < 4 || boardSize > MAX_BOARD_SIZE) {
+			throw new IllegalArgumentException("Board size must be between 4 and " + MAX_BOARD_SIZE + ".");
 		}
-		if (queenCount != DEFAULT_QUEEN_COUNT) {
-			throw new IllegalArgumentException("Queen count must be 8.");
+		if (queenCount < 1 || queenCount > boardSize) {
+			throw new IllegalArgumentException("Queen count must be between 1 and the board size.");
 		}
 	}
 

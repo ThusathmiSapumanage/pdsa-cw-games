@@ -165,6 +165,46 @@ public class QueensRepository {
 		);
 	}
 
+	public int insertDiscoveredSolution(Long sessionId, List<QueensModel.Position> positions) {
+		Integer maxId = jdbcTemplate.queryForObject(
+				"SELECT COALESCE(MAX(Solution_Id), 0) FROM Solution WHERE Session_Id = ?",
+				Integer.class,
+				sessionId
+		);
+		int newSolutionId = (maxId == null ? 0 : maxId) + 1;
+
+		jdbcTemplate.update(
+				"INSERT INTO Solution (Session_Id, Solution_Id, Is_Discovered) VALUES (?, ?, true)",
+				sessionId, newSolutionId
+		);
+
+		jdbcTemplate.batchUpdate(
+				"INSERT INTO Queen_Location (Session_Id, Solution_Id, X_Value, Y_Value) VALUES (?, ?, ?, ?)",
+				new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws java.sql.SQLException {
+						QueensModel.Position p = positions.get(i);
+						ps.setLong(1, sessionId);
+						ps.setInt(2, newSolutionId);
+						ps.setInt(3, p.getX());
+						ps.setInt(4, p.getY());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return positions.size();
+					}
+				}
+		);
+
+		jdbcTemplate.update(
+				"UPDATE Sixteen_Queens_Game SET Solutions_Discovered = Solutions_Discovered + 1 WHERE Session_Id = ?",
+				sessionId
+		);
+
+		return newSolutionId;
+	}
+
 	public Integer findMatchingSolutionId(Long sessionId, List<QueensModel.Position> positions) {
 		if (positions.isEmpty()) {
 			return null;
