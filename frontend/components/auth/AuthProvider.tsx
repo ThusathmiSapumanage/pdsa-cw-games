@@ -70,18 +70,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as { email?: string; token?: string };
-        const email = parsed.email ?? null;
-        const token = parsed.token ?? null;
+      if (!stored) {
+        return;
+      }
 
-        if (email && token) {
-          setUserEmail(email);
-          setAccessToken(token);
-          setIsAuthenticated(true);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
+      const parsed = JSON.parse(stored) as { email?: string; token?: string };
+      const storedEmail = parsed.email ?? null;
+      const storedToken = parsed.token ?? null;
+
+      if (
+        !storedEmail ||
+        !storedToken ||
+        !isLikelyJwt(storedToken) ||
+        isExpiredJwt(storedToken)
+      ) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem("accessToken");
+        return;
       }
 
       const payload = decodeJwtPayload(storedToken);
@@ -90,12 +95,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? payload.sub.trim()
           : storedEmail;
 
-      setIsAuthenticated(true);
-      setUserEmail(subjectEmail ?? null);
+      setUserEmail(subjectEmail);
       setAccessToken(storedToken);
+      setIsAuthenticated(true);
+
+      if (localStorage.getItem("accessToken") !== storedToken) {
+        localStorage.setItem("accessToken", storedToken);
+      }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem("accessToken");
       setIsAuthenticated(false);
       setUserEmail(null);
       setAccessToken(null);
@@ -110,7 +120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
     setUserEmail(normalizedEmail);
     setAccessToken(token);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email, token }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ email: normalizedEmail, token })
+    );
+    localStorage.setItem("accessToken", token);
   };
 
   const logout = () => {
