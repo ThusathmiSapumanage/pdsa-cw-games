@@ -1,12 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "./auth/AuthProvider";
 
+const navTabs = [
+  { label: "Discover", href: "#discover" },
+  { label: "Browse", href: "#game-hub" },
+  { label: "News", href: "#contact" },
+];
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { isAuthenticated, userEmail, logout } = useAuth();
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,113 +24,110 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      window.addEventListener("mousedown", handleClickOutside);
+      return () => window.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [menuOpen]);
+
+  const avatarInitial = userEmail ? userEmail.charAt(0).toUpperCase() : "U";
+
   return (
     <header
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
-        scrolled ? "bg-black/60 backdrop-blur-md py-4" : "bg-transparent py-8"
+        scrolled ? "bg-black/70 backdrop-blur-md py-3" : "bg-transparent py-5"
       }`}
     >
-      {/* Top Border Line - Fades out on scroll */}
       <div
         className={`w-full h-[1px] bg-white/10 transition-opacity duration-500 ${
           scrolled ? "opacity-0" : "opacity-100"
         }`}
       />
 
-      <div className="max-w-7xl mx-auto px-12 flex items-center justify-between">
-        {/* Left Side: Logo & Dots */}
-        <div className="flex items-center gap-10">
-          <Link
-            href="/"
-            className="text-xl font-bold tracking-[0.3em] hover:text-blue-500 transition-colors uppercase text-white"
-          >
-            ALGO<span className="text-blue-600">CORE</span>
-          </Link>
-          <div className="hidden sm:flex gap-2 opacity-20">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="w-1 h-1 rounded-full bg-white" />
-            ))}
-          </div>
-        </div>
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12 flex items-center justify-between gap-6">
+        <Link
+          href="/"
+          className="text-lg md:text-xl font-bold tracking-[0.25em] hover:text-blue-500 transition-colors uppercase text-white whitespace-nowrap"
+        >
+          ALGO<span className="text-blue-600">CORE</span>
+        </Link>
 
-        {/* Center: Navigation */}
-        <nav className="hidden lg:flex items-center gap-10 text-[11px] font-bold tracking-[0.2em] uppercase">
-          <Link
-            href="#game-hub"
-            className="text-white/40 hover:text-white transition-colors"
-          >
-            Algorithms
-          </Link>
-          <span className="text-white/10">|</span>
-          <Link
-            href="#documentation"
-            className="text-white/40 hover:text-white transition-colors"
-          >
-            Documentation
-          </Link>
-          <span className="text-white/10">|</span>
-          <Link
-            href="#contact"
-            className="text-white/40 hover:text-white transition-colors"
-          >
-            Contact
-          </Link>
+        <nav className="hidden lg:flex items-center gap-1 bg-white/[0.04] border border-white/5 rounded-full px-1.5 py-1.5">
+          {navTabs.map((tab) => (
+            <Link
+              key={tab.label}
+              href={tab.href}
+              className="px-4 py-1.5 text-[11px] font-bold tracking-[0.15em] uppercase text-white/55 hover:text-white hover:bg-white/[0.06] rounded-full transition-all"
+            >
+              {tab.label}
+            </Link>
+          ))}
         </nav>
 
-        {/* Right Side: Account */}
-        <div className="flex items-center gap-4 text-white">
+        <div className="flex items-center gap-3">
           {isAuthenticated ? (
-            <>
-              <div className="flex items-center gap-3 group cursor-pointer text-white">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-white/60 group-hover:text-blue-500 transition-colors"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span className="text-[11px] font-black tracking-widest uppercase group-hover:text-blue-500 transition-colors">
-                  Profile
-                </span>
-              </div>
+            <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                onClick={logout}
-                className="text-[10px] font-black tracking-widest uppercase text-white/60 hover:text-blue-500 transition-colors border border-white/10 px-4 py-2 rounded-full"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex items-center gap-2 group"
+                aria-label="Open profile menu"
               >
-                Logout
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-sm font-black text-white ring-2 ring-white/10 group-hover:ring-blue-500/60 transition-all">
+                  {avatarInitial}
+                </span>
               </button>
-            </>
+              {menuOpen && (
+                <div className="absolute right-0 mt-3 w-60 rounded-xl border border-white/10 bg-[#0b0b0b]/95 backdrop-blur-md py-2 shadow-2xl">
+                  <div className="px-4 py-3 border-b border-white/5">
+                    <p className="text-[9px] font-bold tracking-[0.25em] uppercase text-white/40">
+                      Signed in as
+                    </p>
+                    <p className="mt-1 truncate text-sm font-semibold text-white">
+                      {userEmail}
+                    </p>
+                  </div>
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/[0.04] hover:text-white transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      logout();
+                    }}
+                    className="block w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/[0.04] hover:text-blue-400 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-3 group text-white"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-white/60 group-hover:text-blue-500 transition-colors"
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex items-center text-[11px] font-black tracking-[0.2em] uppercase text-white/70 hover:text-white transition-colors px-3 py-2"
               >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              <span className="text-[11px] font-black tracking-widest uppercase group-hover:text-blue-500 transition-colors">
-                Login
-              </span>
-            </Link>
+                Sign In
+              </Link>
+              <Link
+                href="/login?tab=register"
+                className="inline-flex items-center rounded-full bg-blue-600 px-5 py-2.5 text-[11px] font-black tracking-[0.2em] uppercase text-white hover:bg-blue-500 transition-colors"
+              >
+                Sign Up
+              </Link>
+            </>
           )}
         </div>
       </div>

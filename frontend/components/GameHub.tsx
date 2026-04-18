@@ -8,35 +8,35 @@ const games = [
         title: "Minimum Cost",
         tag: "ASSIGNMENT",
         link: "/games/minimum-cost",
-        poster: "/posters/minimum-cost.svg",
+        poster: "/posters/minimum-cost.png",
     },
     {
         id: "02",
         title: "Snake & Ladder",
         tag: "SHORTEST PATH",
         link: "/games/snake-ladder",
-        poster: "/posters/snake-ladder.svg",
+        poster: "/posters/snake-ladder.png",
     },
     {
         id: "03",
         title: "Traffic Simulation",
         tag: "MAX FLOW",
         link: "/games/traffic-simulation",
-        poster: "/posters/traffic-simulation.svg",
+        poster: "/posters/traffic-simulation.png",
     },
     {
         id: "04",
         title: "Knight's Tour",
         tag: "BACKTRACKING",
         link: "/games/knights-tour",
-        poster: "/posters/knights-tour.svg",
+        poster: "/posters/knights-tour.png",
     },
     {
         id: "05",
         title: "16 Queens Puzzle",
         tag: "CONCURRENCY",
         link: "/games/sixteen-queens",
-        poster: "/posters/sixteen-queens.svg",
+        poster: "/posters/sixteen-queens.png",
     }
 ];
 
