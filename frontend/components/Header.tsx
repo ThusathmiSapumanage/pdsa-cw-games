@@ -75,13 +75,6 @@ export default function Header() {
                       {userEmail}
                     </p>
                   </div>
-                  <Link
-                    href="/profile"
-                    className="block px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/[0.04] hover:text-white transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
                   <button
                     type="button"
                     onClick={() => {
