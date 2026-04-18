@@ -22,6 +22,7 @@ public class QueensModel {
 	public static class StartRequest {
 		private Integer boardSize;
 		private Integer queenCount;
+		private Long timeBudgetMs;
 	}
 
 	@Data
@@ -34,6 +35,11 @@ public class QueensModel {
 		private Integer totalSolutions;
 		private Double sequentialTimeMs;
 		private Double threadedTimeMs;
+		private Integer sequentialFound;
+		private Integer threadedFound;
+		private Boolean sequentialHitLimit;
+		private Boolean threadedHitLimit;
+		private Long timeBudgetMs;
 		private String message;
 	}
 

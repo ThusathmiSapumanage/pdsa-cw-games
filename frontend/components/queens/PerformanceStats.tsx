@@ -4,6 +4,11 @@ type PerformanceStatsProps = {
   sequentialTimeMs: number;
   threadedTimeMs: number;
   totalSolutions: number;
+  sequentialFound?: number;
+  threadedFound?: number;
+  sequentialHitLimit?: boolean;
+  threadedHitLimit?: boolean;
+  timeBudgetMs?: number;
 };
 
 function formatDuration(ms: number): string {
@@ -19,6 +24,11 @@ export default function PerformanceStats({
   sequentialTimeMs,
   threadedTimeMs,
   totalSolutions,
+  sequentialFound,
+  threadedFound,
+  sequentialHitLimit,
+  threadedHitLimit,
+  timeBudgetMs,
 }: PerformanceStatsProps) {
   const maxTime = Math.max(sequentialTimeMs, threadedTimeMs, 0.001);
   const seqPct = (sequentialTimeMs / maxTime) * 100;
@@ -27,6 +37,11 @@ export default function PerformanceStats({
   const speedup =
     threadedTimeMs > 0 ? sequentialTimeMs / threadedTimeMs : 0;
   const faster = speedup > 1 ? "Threaded" : speedup > 0 ? "Sequential" : null;
+  const anyHitLimit = Boolean(sequentialHitLimit || threadedHitLimit);
+  const showFoundCounts =
+    typeof sequentialFound === "number" && typeof threadedFound === "number";
+  const throughputBaseline =
+    showFoundCounts ? Math.max(sequentialFound!, threadedFound!, 1) : 1;
 
   return (
     <div className="flex flex-col gap-5">
@@ -90,6 +105,46 @@ export default function PerformanceStats({
       {faster && (
         <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 text-center">
           {faster} faster
+        </div>
+      )}
+
+      {showFoundCounts && (
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5">
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-amber-400/70 mb-1">
+              Seq Found
+            </div>
+            <div className="text-sm font-bold text-white tabular-nums">
+              {sequentialFound!.toLocaleString()}
+            </div>
+            <div className="h-1 mt-1 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500"
+                style={{ width: `${(sequentialFound! / throughputBaseline) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-cyan-400/70 mb-1">
+              Threaded Found
+            </div>
+            <div className="text-sm font-bold text-white tabular-nums">
+              {threadedFound!.toLocaleString()}
+            </div>
+            <div className="h-1 mt-1 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-400"
+                style={{ width: `${(threadedFound! / throughputBaseline) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {anyHitLimit && (
+        <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-amber-300/80 text-center border border-amber-400/20 bg-amber-400/5 rounded p-2">
+          Time-bounded — search hit the {timeBudgetMs ? `${(timeBudgetMs / 1000).toFixed(0)}s` : ""} budget
+          (counts are estimates, not exhaustive)
         </div>
       )}
     </div>

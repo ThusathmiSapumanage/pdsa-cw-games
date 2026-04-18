@@ -231,10 +231,8 @@ export default function QueensPuzzleGame() {
           </div>
 
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
-            Backend counts all valid placements of {queenCount} queens on a{" "}
-            {BOARD_SIZE}×{BOARD_SIZE} board using sequential and threaded
-            backtracking.
-            {queenCount === 16 ? " Expect ~2 min total." : " Should be fast."}
+            Time-bounded search — sequential and threaded each run for ~15 s.
+            For {queenCount === 8 ? "8 queens on 16×16 (intractable, sampled)" : "16 queens on 16×16 (full enumeration)"}.
           </div>
 
           <button
@@ -260,15 +258,10 @@ export default function QueensPuzzleGame() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             {loadingBenchmark ? "Benchmarking..." : "Solving..."}
           </div>
-          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[220px] mx-auto">
-            Counting all {queenCount}-queen placements on {BOARD_SIZE}×
-            {BOARD_SIZE}.
-            {queenCount === 16 && (
-              <>
-                <br />
-                Sequential ~2 min, threaded ~20 sec.
-              </>
-            )}
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[240px] mx-auto">
+            Searching {queenCount}-queen placements on {BOARD_SIZE}×{BOARD_SIZE}.
+            <br />
+            Time-bounded — ~15 s per algorithm.
           </div>
         </div>
       )}
@@ -279,6 +272,11 @@ export default function QueensPuzzleGame() {
             sequentialTimeMs={roundData.sequentialTimeMs}
             threadedTimeMs={roundData.threadedTimeMs}
             totalSolutions={roundData.totalSolutions}
+            sequentialFound={roundData.sequentialFound}
+            threadedFound={roundData.threadedFound}
+            sequentialHitLimit={roundData.sequentialHitLimit}
+            threadedHitLimit={roundData.threadedHitLimit}
+            timeBudgetMs={roundData.timeBudgetMs}
           />
 
           <div className="pt-4 border-t border-white/5">

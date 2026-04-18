@@ -6,6 +6,7 @@ export type Position = {
 export type StartRequest = {
   boardSize: number;
   queenCount: number;
+  timeBudgetMs?: number;
 };
 
 export type StartResponse = {
@@ -15,6 +16,11 @@ export type StartResponse = {
   totalSolutions: number;
   sequentialTimeMs: number;
   threadedTimeMs: number;
+  sequentialFound: number;
+  threadedFound: number;
+  sequentialHitLimit: boolean;
+  threadedHitLimit: boolean;
+  timeBudgetMs: number;
   message: string;
 };
 

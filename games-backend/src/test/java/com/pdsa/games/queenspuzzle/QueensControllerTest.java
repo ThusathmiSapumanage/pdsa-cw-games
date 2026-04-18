@@ -37,9 +37,11 @@ class QueensControllerTest {
 
     @Test
     void startRound_shouldDelegateToServiceAndReturn200() {
-        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 16);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L);
         QueensModel.StartResponse expected = new QueensModel.StartResponse(
-                100L, 16, 16, 14772512, 112000.0, 18800.0, "Sixteen Queens solutions generated and stored.");
+                100L, 16, 8, 12000, 14800.0, 14900.0,
+                10000, 12000, true, true, 15_000L,
+                "Sequential found 10000; Threaded found 12000 in 15000 ms each (time-bounded).");
 
         when(service.startRound(eq(request), eq(EMAIL))).thenReturn(expected);
 
@@ -48,7 +50,9 @@ class QueensControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(100L, response.getBody().getSessionId());
-        assertEquals(14772512, response.getBody().getTotalSolutions());
+        assertEquals(12000, response.getBody().getTotalSolutions());
+        assertEquals(10000, response.getBody().getSequentialFound());
+        assertEquals(12000, response.getBody().getThreadedFound());
         verify(service).startRound(request, EMAIL);
     }
 
@@ -57,7 +61,7 @@ class QueensControllerTest {
         QueensModel.SubmitRequest request = new QueensModel.SubmitRequest(
                 100L, List.of(new QueensModel.Position(1, 1)));
         QueensModel.SubmitResponse expected = new QueensModel.SubmitResponse(
-                100L, 1L, true, false, 1, 14772512, "Correct solution recorded.");
+                100L, 1L, true, false, 1, 12000, "Correct solution recorded.");
 
         when(service.submitAnswer(any(), eq(EMAIL))).thenReturn(expected);
 
@@ -71,7 +75,7 @@ class QueensControllerTest {
     @Test
     void getStatus_shouldDelegateToServiceAndReturn200() {
         QueensModel.StatusResponse expected = new QueensModel.StatusResponse(
-                100L, 14772512, 42, "Sixteen Queens progress loaded.");
+                100L, 12000, 42, "Sixteen Queens progress loaded.");
 
         when(service.getStatus(eq(100L), eq(EMAIL))).thenReturn(expected);
 
@@ -87,7 +91,7 @@ class QueensControllerTest {
         Authentication unauth = mock(Authentication.class);
         when(unauth.isAuthenticated()).thenReturn(false);
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 16);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> controller.startRound(request, unauth));

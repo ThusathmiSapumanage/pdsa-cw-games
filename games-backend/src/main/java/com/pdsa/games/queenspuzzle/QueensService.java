@@ -18,18 +18,16 @@ public class QueensService {
 	private static final int DEFAULT_QUEEN_COUNT = 8;
 	private static final int MAX_BOARD_SIZE = 16;
 
+	private static final long MIN_TIME_BUDGET_MS = 500L;
+	private static final long MAX_TIME_BUDGET_MS = 30_000L;
+
 	private static final String GAME_NAME = "Sixteen Queens Puzzle";
 	private static final String SEQUENTIAL_NAME = "Sixteen Queens - Sequential";
 	private static final String THREADED_NAME = "Sixteen Queens - Threaded";
 
 	private final QueensRepository repository;
 	private final QueensSolver solver = new QueensSolver();
-
-	private static final ConcurrentMap<String, CachedBenchmark> BENCHMARK_CACHE = new ConcurrentHashMap<>();
 	private final ConcurrentMap<Long, Integer> sessionQueenCount = new ConcurrentHashMap<>();
-
-	private record CachedBenchmark(int totalSolutions, double sequentialMs, double threadedMs) {
-	}
 
 	public QueensService(QueensRepository repository) {
 		this.repository = repository;
@@ -40,13 +38,15 @@ public class QueensService {
 		Long playerId = resolveAuthenticatedPlayerId(authenticatedEmail);
 
 		QueensModel.StartRequest payload = request == null
-				? new QueensModel.StartRequest(null, null)
+				? new QueensModel.StartRequest(null, null, null)
 				: request;
 
 		Integer boardSizeValue = payload.getBoardSize();
 		Integer queenCountValue = payload.getQueenCount();
+		Long requestedBudget = payload.getTimeBudgetMs();
 		int boardSize = boardSizeValue != null ? boardSizeValue : DEFAULT_BOARD_SIZE;
 		int queenCount = queenCountValue != null ? queenCountValue : DEFAULT_QUEEN_COUNT;
+		long timeBudgetMs = clampBudget(requestedBudget);
 
 		validateBoardConfig(boardSize, queenCount);
 
@@ -57,34 +57,28 @@ public class QueensService {
 		Long sessionId = repository.createGameSession(gameId, playerId);
 		sessionQueenCount.put(sessionId, queenCount);
 
-		String cacheKey = boardSize + "x" + queenCount;
-		CachedBenchmark benchmark = BENCHMARK_CACHE.get(cacheKey);
-		String threadedStatus = "SUCCESS";
+		QueensSolver.TimedResult sequentialResult = solver.solveSequentialTimed(
+				boardSize, queenCount, timeBudgetMs, QueensSolver.DEFAULT_MAX_STORED);
+		QueensSolver.TimedResult threadedResult = solver.solveThreadedTimed(
+				boardSize, queenCount, timeBudgetMs, QueensSolver.DEFAULT_MAX_STORED);
 
-		if (benchmark == null) {
-			long sequentialStart = System.nanoTime();
-			int sequentialCount = solver.solveSequentialCount(boardSize, queenCount);
-			long sequentialEnd = System.nanoTime();
-
-			long threadedStart = System.nanoTime();
-			int threadedCount = solver.solveThreadedCount(boardSize, queenCount);
-			long threadedEnd = System.nanoTime();
-
-			double sequentialMs = nanosToMs(sequentialEnd - sequentialStart);
-			double threadedMs = nanosToMs(threadedEnd - threadedStart);
-
-			threadedStatus = threadedCount == sequentialCount ? "SUCCESS" : "ERROR";
-			benchmark = new CachedBenchmark(sequentialCount, sequentialMs, threadedMs);
-			BENCHMARK_CACHE.put(cacheKey, benchmark);
-		}
-
-		int totalSolutions = benchmark.totalSolutions();
-		double sequentialMs = benchmark.sequentialMs();
-		double threadedMs = benchmark.threadedMs();
+		int totalSolutions = Math.max(sequentialResult.totalFound, threadedResult.totalFound);
+		double sequentialMs = sequentialResult.elapsedMs;
+		double threadedMs = threadedResult.elapsedMs;
 
 		repository.saveSixteenQueensGame(sessionId, totalSolutions);
-		repository.saveAlgorithmExecution(sessionId, sequentialId, sequentialMs, "SUCCESS");
-		repository.saveAlgorithmExecution(sessionId, threadedId, threadedMs, threadedStatus);
+
+		List<int[]> answerKey = sequentialResult.sample.size() >= threadedResult.sample.size()
+				? sequentialResult.sample
+				: threadedResult.sample;
+		if (!answerKey.isEmpty()) {
+			repository.saveSolutions(sessionId, answerKey);
+		}
+
+		repository.saveAlgorithmExecution(sessionId, sequentialId, sequentialMs,
+				buildExecutionResult(sequentialResult));
+		repository.saveAlgorithmExecution(sessionId, threadedId, threadedMs,
+				buildExecutionResult(threadedResult));
 
 		QueensModel.StartResponse response = new QueensModel.StartResponse();
 		response.setSessionId(sessionId);
@@ -93,7 +87,12 @@ public class QueensService {
 		response.setTotalSolutions(totalSolutions);
 		response.setSequentialTimeMs(sequentialMs);
 		response.setThreadedTimeMs(threadedMs);
-		response.setMessage("Sixteen Queens solutions generated and stored.");
+		response.setSequentialFound(sequentialResult.totalFound);
+		response.setThreadedFound(threadedResult.totalFound);
+		response.setSequentialHitLimit(sequentialResult.hitTimeLimit);
+		response.setThreadedHitLimit(threadedResult.hitTimeLimit);
+		response.setTimeBudgetMs(timeBudgetMs);
+		response.setMessage(buildStartMessage(sequentialResult, threadedResult, timeBudgetMs));
 
 		return response;
 	}
@@ -143,26 +142,35 @@ public class QueensService {
 		}
 
 		Integer existingSolutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
+		int updatedDiscovered;
+		String message;
+		String responseSummary;
 
 		if (existingSolutionId != null) {
-			return new QueensModel.SubmitResponse(
-					request.getSessionId(),
-					playerId,
-					true,
-					true,
-					discovered,
-					totalSolutions,
-					"This solution was already discovered. Try a different one."
-			);
+			if (repository.isSolutionDiscovered(request.getSessionId(), existingSolutionId)) {
+				return new QueensModel.SubmitResponse(
+						request.getSessionId(),
+						playerId,
+						true,
+						true,
+						discovered,
+						totalSolutions,
+						"This solution was already discovered. Try a different one."
+				);
+			}
+			repository.markSolutionDiscovered(request.getSessionId(), existingSolutionId);
+			updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
+			responseSummary = buildResponseSummary(playerId, "SOLUTION_" + existingSolutionId);
+			message = "Correct solution recorded.";
+		} else {
+			int newSolutionId = repository.insertDiscoveredSolution(request.getSessionId(), positions);
+			updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
+			responseSummary = buildResponseSummary(playerId, "SOLUTION_" + newSolutionId);
+			message = "Correct solution recorded.";
 		}
 
-		int newSolutionId = repository.insertDiscoveredSolution(request.getSessionId(), positions);
-		int updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
-
-		String responseSummary = buildResponseSummary(playerId, "SOLUTION_" + newSolutionId);
 		repository.saveResponse(request.getSessionId(), responseSummary, true);
 
-		String message = "Correct solution recorded.";
 		if (updatedDiscovered >= totalSolutions) {
 			repository.resetDiscovered(request.getSessionId());
 			updatedDiscovered = 0;
@@ -220,6 +228,20 @@ public class QueensService {
 		return playerId;
 	}
 
+	private long clampBudget(Long requestedBudget) {
+		if (requestedBudget == null) {
+			return QueensSolver.DEFAULT_TIME_BUDGET_MS;
+		}
+		long value = requestedBudget;
+		if (value < MIN_TIME_BUDGET_MS) {
+			return MIN_TIME_BUDGET_MS;
+		}
+		if (value > MAX_TIME_BUDGET_MS) {
+			return MAX_TIME_BUDGET_MS;
+		}
+		return value;
+	}
+
 	private void validateBoardConfig(int boardSize, int queenCount) {
 		if (boardSize < 4 || boardSize > MAX_BOARD_SIZE) {
 			throw new IllegalArgumentException("Board size must be between 4 and " + MAX_BOARD_SIZE + ".");
@@ -271,8 +293,19 @@ public class QueensService {
 		}
 	}
 
-	private double nanosToMs(long nanos) {
-		return nanos / 1_000_000.0;
+	private String buildExecutionResult(QueensSolver.TimedResult result) {
+		return result.hitTimeLimit ? "TIMEOUT" : "SUCCESS";
+	}
+
+	private String buildStartMessage(QueensSolver.TimedResult sequential,
+									 QueensSolver.TimedResult threaded,
+									 long timeBudgetMs) {
+		String suffix = (sequential.hitTimeLimit || threaded.hitTimeLimit)
+				? " (time-bounded — search hit the budget; partial counts shown)"
+				: " (full search completed within budget)";
+		return "Sequential found " + sequential.totalFound
+				+ "; Threaded found " + threaded.totalFound
+				+ " in " + timeBudgetMs + " ms each" + suffix;
 	}
 
 	private String buildResponseSummary(Long playerId, String responseKey) {
