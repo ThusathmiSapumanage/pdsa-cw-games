@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Syne, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
+import Header from "../components/Header";
 
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -28,6 +29,7 @@ export default function RootLayout({
         <div className="bg-noise" />
 
         <AuthProvider>
+          <Header />
           <main className="relative z-10 min-h-screen">{children}</main>
         </AuthProvider>
       </body>
