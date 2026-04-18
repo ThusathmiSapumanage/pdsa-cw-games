@@ -220,11 +220,10 @@ class QueensServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.getStatus(0L, EMAIL));
     }
 
-    // 16x16 valid solution (one of the 14M+) — placed by row, columns:
-    // row 1->col 1, 2->3, 3->5, 4->2, 5->13, 6->9, 7->14, 8->12,
-    // 9->15, 10->6, 11->16, 12->7, 13->4, 14->11, 15->8, 16->10
+    // 8 queens on 16x16, no-threat placement (spec default).
+    // Row 1..8, cols 1,3,5,7,9,11,13,15 — all rows/cols/diagonals unique.
     private List<QueensModel.Position> validSolution() {
-        int[] cols = {1, 3, 5, 2, 13, 9, 14, 12, 15, 6, 16, 7, 4, 11, 8, 10};
+        int[] cols = {1, 3, 5, 7, 9, 11, 13, 15};
         List<QueensModel.Position> positions = new ArrayList<>();
         for (int row = 0; row < cols.length; row++) {
             positions.add(new QueensModel.Position(cols[row], row + 1));

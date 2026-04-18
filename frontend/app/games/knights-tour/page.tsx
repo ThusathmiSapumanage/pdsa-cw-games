@@ -464,6 +464,30 @@ export default function KnightsTourPage() {
       ? "text-rose-300 border-rose-500/20 bg-rose-600/10"
       : "text-white/70 border-white/10 bg-white/5";
 
+  const benchmarkChart =
+    benchmarkData.length > 0 ? (
+      <div className="rounded-xl border border-white/5 bg-[#0a0a0a] p-8">
+        <PerformanceRunChart
+          title="20-Round Performance Chart"
+          data={benchmarkData}
+          series={[
+            {
+              key: "warnsdorff",
+              label: "Warnsdorff",
+              colorClass: "bg-fuchsia-400",
+              stroke: "#e879f9",
+            },
+            {
+              key: "backtracking",
+              label: "Backtracking",
+              colorClass: "bg-cyan-400",
+              stroke: "#22d3ee",
+            },
+          ]}
+        />
+      </div>
+    ) : null;
+
   return (
     <AuthGate>
       <GameLayoutShell
@@ -645,27 +669,6 @@ export default function KnightsTourPage() {
         visualization={
           roundData ? (
             <div className="custom-scrollbar flex h-full min-w-0 w-full flex-col gap-5 overflow-x-hidden overflow-y-auto pb-6 pr-2">
-              {benchmarkData.length > 0 && (
-                <PerformanceRunChart
-                  title="20-Round Performance Chart"
-                  data={benchmarkData}
-                  series={[
-                    {
-                      key: "warnsdorff",
-                      label: "Warnsdorff",
-                      colorClass: "bg-fuchsia-400",
-                      stroke: "#e879f9",
-                    },
-                    {
-                      key: "backtracking",
-                      label: "Backtracking",
-                      colorClass: "bg-cyan-400",
-                      stroke: "#22d3ee",
-                    },
-                  ]}
-                />
-              )}
-
               <div className="min-w-0 rounded-2xl border border-white/5 bg-[#050505] p-4 shadow-2xl">
                 <div className="mb-3 flex items-center justify-between px-1">
                   <p className="font-mono text-[10px] uppercase tracking-widest text-white/30">
@@ -895,6 +898,7 @@ export default function KnightsTourPage() {
             )}
           </div>
         }
+        bottomSection={benchmarkChart}
       />
 
       <AlgoNotify

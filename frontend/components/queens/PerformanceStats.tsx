@@ -6,6 +6,15 @@ type PerformanceStatsProps = {
   totalSolutions: number;
 };
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms.toFixed(2)} ms`;
+  const totalSeconds = ms / 1000;
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(2)} s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds - minutes * 60;
+  return `${minutes}m ${remainingSeconds.toFixed(2)}s`;
+}
+
 export default function PerformanceStats({
   sequentialTimeMs,
   threadedTimeMs,
@@ -26,8 +35,8 @@ export default function PerformanceStats({
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/50">
             Sequential
           </span>
-          <span className="text-xs font-mono text-white">
-            {sequentialTimeMs.toFixed(2)} ms
+          <span className="text-xs font-mono text-white" title={`${sequentialTimeMs.toFixed(2)} ms`}>
+            {formatDuration(sequentialTimeMs)}
           </span>
         </div>
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -43,8 +52,8 @@ export default function PerformanceStats({
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/50">
             Threaded
           </span>
-          <span className="text-xs font-mono text-white">
-            {threadedTimeMs.toFixed(2)} ms
+          <span className="text-xs font-mono text-white" title={`${threadedTimeMs.toFixed(2)} ms`}>
+            {formatDuration(threadedTimeMs)}
           </span>
         </div>
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">

@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class QueensService {
 
 	private static final int DEFAULT_BOARD_SIZE = 16;
-	private static final int DEFAULT_QUEEN_COUNT = 16;
+	private static final int DEFAULT_QUEEN_COUNT = 8;
 	private static final int MAX_BOARD_SIZE = 16;
 
 	private static final String GAME_NAME = "Sixteen Queens Puzzle";
@@ -26,6 +26,7 @@ public class QueensService {
 	private final QueensSolver solver = new QueensSolver();
 
 	private static final ConcurrentMap<String, CachedBenchmark> BENCHMARK_CACHE = new ConcurrentHashMap<>();
+	private final ConcurrentMap<Long, Integer> sessionQueenCount = new ConcurrentHashMap<>();
 
 	private record CachedBenchmark(int totalSolutions, double sequentialMs, double threadedMs) {
 	}
@@ -54,6 +55,7 @@ public class QueensService {
 		Integer threadedId = repository.ensureAlgorithmId(gameId, THREADED_NAME);
 
 		Long sessionId = repository.createGameSession(gameId, playerId);
+		sessionQueenCount.put(sessionId, queenCount);
 
 		String cacheKey = boardSize + "x" + queenCount;
 		CachedBenchmark benchmark = BENCHMARK_CACHE.get(cacheKey);
@@ -120,8 +122,11 @@ public class QueensService {
 
 		List<QueensModel.Position> positions = normalizePositions(request.getQueens());
 
+		Integer storedQueenCount = sessionQueenCount.get(request.getSessionId());
+		int expectedQueenCount = storedQueenCount != null ? storedQueenCount : DEFAULT_QUEEN_COUNT;
+
 		try {
-			validatePositions(positions, DEFAULT_BOARD_SIZE, DEFAULT_QUEEN_COUNT);
+			validatePositions(positions, DEFAULT_BOARD_SIZE, expectedQueenCount);
 		} catch (IllegalArgumentException ex) {
 			String responseSummary = buildResponseSummary(playerId, "INCORRECT");
 			repository.saveResponse(request.getSessionId(), responseSummary, false);

@@ -371,6 +371,30 @@ export default function MinimumCostPage() {
       : result.hungarianSteps.length
     : 0;
 
+  const benchmarkChart =
+    benchmarkData.length > 0 ? (
+      <div className="rounded-xl border border-white/5 bg-[#0a0a0a] p-8">
+        <PerformanceRunChart
+          title="20-Round Performance Chart"
+          data={benchmarkData}
+          series={[
+            {
+              key: "greedy",
+              label: "Greedy",
+              colorClass: "bg-blue-400",
+              stroke: "#60a5fa",
+            },
+            {
+              key: "hungarian",
+              label: "Hungarian",
+              colorClass: "bg-emerald-400",
+              stroke: "#34d399",
+            },
+          ]}
+        />
+      </div>
+    ) : null;
+
   return (
     <AuthGate>
       <GameLayoutShell
@@ -465,27 +489,6 @@ export default function MinimumCostPage() {
         visualization={
           result ? (
             <div className="custom-scrollbar flex h-full w-full flex-col gap-8 overflow-auto pb-10 pr-2">
-              {benchmarkData.length > 0 && (
-                <PerformanceRunChart
-                  title="20-Round Performance Chart"
-                  data={benchmarkData}
-                  series={[
-                    {
-                      key: "greedy",
-                      label: "Greedy",
-                      colorClass: "bg-blue-400",
-                      stroke: "#60a5fa",
-                    },
-                    {
-                      key: "hungarian",
-                      label: "Hungarian",
-                      colorClass: "bg-emerald-400",
-                      stroke: "#34d399",
-                    },
-                  ]}
-                />
-              )}
-
               <div className="grid grid-cols-1 gap-8">
                 <AnimatePresence mode="wait">
                   {selectedAlgo === "greedy" ? (
@@ -609,6 +612,10 @@ export default function MinimumCostPage() {
                 </div>
               </div>
 
+              <div className="border-t border-white/5 pt-8">
+                <MinCostAnalytics history={history} />
+              </div>
+
               {benchmarkData.length > 0 && (
                 <div className="rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
                   <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
@@ -639,10 +646,6 @@ export default function MinimumCostPage() {
                   </div>
                 </div>
               )}
-
-              <div className="border-t border-white/5 pt-8">
-                <MinCostAnalytics history={history} />
-              </div>
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-white/10">
@@ -768,6 +771,7 @@ export default function MinimumCostPage() {
             )}
           </div>
         }
+        bottomSection={benchmarkChart}
       />
 
       <AlgoNotify

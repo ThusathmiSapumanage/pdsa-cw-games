@@ -11,8 +11,9 @@ import { Position, StartResponse, SubmitResponse } from "./types";
 import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
 
 const BOARD_SIZE = 16;
-const QUEEN_COUNT = 16;
 const MAX_BENCHMARK_POINTS = 12;
+
+type QueenCountOption = 8 | 16;
 
 type BenchmarkRow = {
   round: number;
@@ -31,6 +32,8 @@ type GamePhase =
 
 export default function QueensPuzzleGame() {
   const [phase, setPhase] = useState<GamePhase>("idle");
+  const [queenCount, setQueenCount] = useState<QueenCountOption>(8);
+  const [activeQueenCount, setActiveQueenCount] = useState<QueenCountOption>(8);
   const [roundData, setRoundData] = useState<StartResponse | null>(null);
   const [queens, setQueens] = useState<Position[]>([]);
   const [lastResult, setLastResult] = useState<SubmitResponse | null>(null);
@@ -54,9 +57,10 @@ export default function QueensPuzzleGame() {
     try {
       const response = await startQueensRound({
         boardSize: BOARD_SIZE,
-        queenCount: QUEEN_COUNT,
+        queenCount,
       });
       setRoundData(response);
+      setActiveQueenCount(queenCount);
       setTotalSolutions(response.totalSolutions);
       setDiscovered(0);
       setBenchmarkData((prev) => {
@@ -77,7 +81,7 @@ export default function QueensPuzzleGame() {
       setError(err instanceof Error ? err.message : "Failed to start round.");
       setPhase("idle");
     }
-  }, []);
+  }, [queenCount]);
 
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -90,7 +94,7 @@ export default function QueensPuzzleGame() {
         if (existing) {
           return prev.filter((q) => !(q.x === x && q.y === y));
         }
-        if (prev.length >= QUEEN_COUNT) {
+        if (prev.length >= activeQueenCount) {
           return prev;
         }
         return [...prev, { x, y }];
@@ -114,8 +118,8 @@ export default function QueensPuzzleGame() {
       setError("Start a round first.");
       return;
     }
-    if (queens.length !== QUEEN_COUNT) {
-      setError(`Place exactly ${QUEEN_COUNT} queens before submitting.`);
+    if (queens.length !== activeQueenCount) {
+      setError(`Place exactly ${activeQueenCount} queens before submitting.`);
       return;
     }
 
@@ -168,10 +172,11 @@ export default function QueensPuzzleGame() {
       for (let i = 1; i <= 20; i++) {
         const response = await startQueensRound({
           boardSize: BOARD_SIZE,
-          queenCount: QUEEN_COUNT,
+          queenCount,
         });
 
         setRoundData(response);
+        setActiveQueenCount(queenCount);
         setTotalSolutions(response.totalSolutions);
         setDiscovered(0);
 
@@ -191,19 +196,45 @@ export default function QueensPuzzleGame() {
     } finally {
       setLoadingBenchmark(false);
     }
-  }, []);
+  }, [queenCount]);
 
   const isBoardDisabled = phase === "starting" || phase === "submitting";
-  const canSubmit = queens.length === QUEEN_COUNT && phase === "ready";
+  const canSubmit = queens.length === activeQueenCount && phase === "ready";
 
   const controls = (
     <div className="flex flex-col gap-6">
       {phase === "idle" && (
         <>
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-3 block">
+              Queens to place
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([8, 16] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setQueenCount(option)}
+                  className={`py-3 rounded font-bold uppercase tracking-widest text-xs transition-colors border ${
+                    queenCount === option
+                      ? "bg-blue-600 text-white border-blue-500"
+                      : "bg-transparent text-white/60 border-white/10 hover:border-white/30 hover:text-white"
+                  }`}
+                >
+                  {option} Queens
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/30">
+              Spec default: 8 queens on 16×16. Pick 16 for classic N-queens.
+            </p>
+          </div>
+
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
-            Backend counts all valid placements of {QUEEN_COUNT} queens on a{" "}
+            Backend counts all valid placements of {queenCount} queens on a{" "}
             {BOARD_SIZE}×{BOARD_SIZE} board using sequential and threaded
-            backtracking. Expect ~2 min total.
+            backtracking.
+            {queenCount === 16 ? " Expect ~2 min total." : " Should be fast."}
           </div>
 
           <button
@@ -229,10 +260,15 @@ export default function QueensPuzzleGame() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             {loadingBenchmark ? "Benchmarking..." : "Solving..."}
           </div>
-          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[200px] mx-auto">
-            Counting all {BOARD_SIZE}×{BOARD_SIZE} placements.
-            <br />
-            Sequential ~2 min, threaded ~20 sec.
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[220px] mx-auto">
+            Counting all {queenCount}-queen placements on {BOARD_SIZE}×
+            {BOARD_SIZE}.
+            {queenCount === 16 && (
+              <>
+                <br />
+                Sequential ~2 min, threaded ~20 sec.
+              </>
+            )}
           </div>
         </div>
       )}
@@ -300,8 +336,9 @@ export default function QueensPuzzleGame() {
             Ready to Deploy
           </span>
           <p className="text-sm leading-relaxed mb-6">
-            Click <span className="text-blue-400 font-bold">Deploy Queens</span>{" "}
-            to begin. The solver will calculate all valid {QUEEN_COUNT}-queen
+            Click{" "}
+            <span className="text-blue-400 font-bold">Deploy Queens</span> to
+            begin. The solver will calculate all valid {activeQueenCount}-queen
             placements on a {BOARD_SIZE}×{BOARD_SIZE} board.
           </p>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-black/50 rounded-full border border-white/10 text-[10px] font-mono">
@@ -318,7 +355,7 @@ export default function QueensPuzzleGame() {
               </div>
               <div className="text-2xl font-black text-white tabular-nums">
                 {queens.length}{" "}
-                <span className="text-white/30 text-sm">/ {QUEEN_COUNT}</span>
+                <span className="text-white/30 text-sm">/ {activeQueenCount}</span>
               </div>
             </div>
 
@@ -356,7 +393,7 @@ export default function QueensPuzzleGame() {
 
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 text-center max-w-md">
             Click a cell to place a queen. Red tint shows attacked squares.
-            Place exactly {QUEEN_COUNT} queens with no conflicts, then submit.
+            Place exactly {activeQueenCount} queens with no conflicts, then submit.
           </div>
 
           {lastResult && (
@@ -450,7 +487,7 @@ export default function QueensPuzzleGame() {
       <GameLayoutShell
         gameId="05"
         title="Sixteen Queens Puzzle"
-        description={`Place ${QUEEN_COUNT} queens on a ${BOARD_SIZE}×${BOARD_SIZE} board. Backend compares sequential vs threaded backtracking execution times.`}
+        description={`Place ${activeQueenCount} queens on a ${BOARD_SIZE}×${BOARD_SIZE} board. Backend compares sequential vs threaded backtracking execution times.`}
         controls={controls}
         visualization={visualization}
       />
