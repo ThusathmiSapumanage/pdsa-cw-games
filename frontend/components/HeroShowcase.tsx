@@ -86,18 +86,18 @@ export default function HeroShowcase() {
   return (
     <section
       id="discover"
-      className="relative px-6 pt-28 pb-14 md:px-12 md:pt-32"
+      className="relative flex flex-col px-6 pt-24 pb-6 md:px-12 md:pt-28 lg:h-screen"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_22%)]" />
 
-      <div className="relative mx-auto max-w-[1700px]">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="relative mx-auto flex w-full max-w-[1700px] flex-1 flex-col min-h-0">
+        <div className="grid grid-cols-12 gap-5 flex-1 min-h-0">
           {/* Featured card */}
           <Link
             href={active.link}
-            className="group relative block overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] aspect-[16/9] lg:aspect-auto lg:min-h-[540px]"
+            className="group relative col-span-12 lg:col-span-9 block overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] aspect-[16/9] lg:aspect-auto lg:h-full"
           >
             {heroGames.map((g, i) => (
               <Image
@@ -153,7 +153,7 @@ export default function HeroShowcase() {
           </Link>
 
           {/* Sidebar list */}
-          <div className="flex flex-col gap-2">
+          <div className="col-span-12 lg:col-span-3 flex flex-col gap-2 lg:h-full">
             {heroGames.map((g, i) => {
               const isActive = i === activeIndex;
               return (
@@ -162,18 +162,18 @@ export default function HeroShowcase() {
                   type="button"
                   onClick={() => setActiveIndex(i)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`group flex items-center gap-4 rounded-xl border px-3 py-3 text-left transition-all duration-300 ${
+                  className={`group flex items-center gap-4 rounded-xl border px-3 py-3 text-left transition-all duration-300 lg:flex-1 lg:min-h-0 ${
                     isActive
                       ? "border-blue-500/40 bg-white/[0.06]"
                       : "border-white/5 bg-transparent hover:border-white/15 hover:bg-white/[0.03]"
                   }`}
                 >
-                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-md border border-white/10 bg-[#0a0a0a]">
+                  <div className="relative h-full max-h-24 aspect-[16/10] shrink-0 overflow-hidden rounded-md border border-white/10 bg-[#0a0a0a]">
                     <Image
                       src={g.poster}
                       alt={g.title}
                       fill
-                      sizes="80px"
+                      sizes="120px"
                       className="object-cover"
                     />
                     {isActive && (
