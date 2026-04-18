@@ -17,11 +17,11 @@ type HeroGame = {
 const heroGames: HeroGame[] = [
   {
     id: "01",
-    title: "16 Queens Puzzle",
+    title: "16 Queens' Puzzle",
     tag: "CONCURRENCY",
     tagline: "Sequential vs Threaded",
     description:
-      "Place 16 queens on a 16x16 board where none threaten the other. Watch sequential and threaded solvers race across every valid configuration.",
+      "Place 8 queens on a 16x16 board where none threaten the other. Watch sequential and threaded solvers race across every valid configuration.",
     link: "/games/sixteen-queens",
     poster: "/posters/sixteen-queens.png",
   },
@@ -133,9 +133,6 @@ export default function HeroShowcase() {
               <div className="mt-7 flex flex-wrap items-center gap-4">
                 <span className="inline-flex items-center rounded-full bg-blue-600 px-6 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-white transition-colors group-hover:bg-blue-500">
                   Play Now
-                </span>
-                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50">
-                  Free
                 </span>
               </div>
             </div>

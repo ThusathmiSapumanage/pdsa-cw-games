@@ -4,12 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "./auth/AuthProvider";
 
-const navTabs = [
-  { label: "Discover", href: "#discover" },
-  { label: "Browse", href: "#game-hub" },
-  { label: "News", href: "#contact" },
-];
-
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,18 +51,6 @@ export default function Header() {
         >
           ALGO<span className="text-blue-600">CORE</span>
         </Link>
-
-        <nav className="hidden lg:flex items-center gap-1 bg-white/[0.04] border border-white/5 rounded-full px-1.5 py-1.5">
-          {navTabs.map((tab) => (
-            <Link
-              key={tab.label}
-              href={tab.href}
-              className="px-4 py-1.5 text-[11px] font-bold tracking-[0.15em] uppercase text-white/55 hover:text-white hover:bg-white/[0.06] rounded-full transition-all"
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
