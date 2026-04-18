@@ -38,6 +38,12 @@ export default function QueensPuzzleGame() {
   const [totalSolutions, setTotalSolutions] = useState(0);
   const [error, setError] = useState("");
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+
+  const formatMs = (value: number) => {
+    if (!Number.isFinite(value)) return "0.000";
+    return value.toFixed(3);
+  };
 
   const handleStartRound = useCallback(async () => {
     setError("");
@@ -144,8 +150,47 @@ export default function QueensPuzzleGame() {
     setLastResult(null);
     setDiscovered(0);
     setTotalSolutions(0);
+    setBenchmarkData([]);
     setPhase("idle");
     setError("");
+  }, []);
+
+  const handleRun20Times = useCallback(async () => {
+    setError("");
+    setLastResult(null);
+    setQueens([]);
+    setPhase("starting");
+    setLoadingBenchmark(true);
+
+    try {
+      const runs: BenchmarkRow[] = [];
+
+      for (let i = 1; i <= 20; i++) {
+        const response = await startQueensRound({
+          boardSize: BOARD_SIZE,
+          queenCount: QUEEN_COUNT,
+        });
+
+        setRoundData(response);
+        setTotalSolutions(response.totalSolutions);
+        setDiscovered(0);
+
+        runs.push({
+          round: i,
+          sequential: response.sequentialTimeMs,
+          threaded: response.threadedTimeMs,
+          totalSolutions: response.totalSolutions,
+        });
+      }
+
+      setBenchmarkData(runs);
+      setPhase("ready");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run benchmark.");
+      setPhase("idle");
+    } finally {
+      setLoadingBenchmark(false);
+    }
   }, []);
 
   const isBoardDisabled = phase === "starting" || phase === "submitting";
@@ -167,6 +212,14 @@ export default function QueensPuzzleGame() {
           >
             Deploy Queens
           </button>
+
+          <button
+            onClick={handleRun20Times}
+            disabled={loadingBenchmark}
+            className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-cyan-400/60 hover:text-cyan-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {loadingBenchmark ? "Benchmarking..." : "Run 20 Times"}
+          </button>
         </>
       )}
 
@@ -174,7 +227,7 @@ export default function QueensPuzzleGame() {
         <div className="text-center py-8">
           <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
-            Solving...
+            {loadingBenchmark ? "Benchmarking..." : "Solving..."}
           </div>
           <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[200px] mx-auto">
             Counting all {BOARD_SIZE}×{BOARD_SIZE} placements.
@@ -218,6 +271,14 @@ export default function QueensPuzzleGame() {
               className="bg-transparent border border-white/10 text-white/50 py-2.5 rounded font-bold uppercase tracking-widest hover:border-white/30 hover:text-white transition-colors text-[10px] mt-1"
             >
               New Round
+            </button>
+
+            <button
+              onClick={handleRun20Times}
+              disabled={loadingBenchmark || isBoardDisabled}
+              className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-cyan-400/60 hover:text-cyan-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {loadingBenchmark ? "Benchmarking..." : "Run 20 Times"}
             </button>
           </div>
         </>
@@ -339,7 +400,43 @@ export default function QueensPuzzleGame() {
                     },
                   ]}
                   yLabel="Total Solutions"
+                  valueFormatter={(value) => Math.round(value).toLocaleString()}
+                  tooltipFormatter={(label, round, value) =>
+                    `${label} - Round ${round}: ${Math.round(value).toLocaleString()}`
+                  }
                 />
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
+                <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
+                  20-Run Benchmark Table
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-[11px] text-white/70">
+                    <thead className="text-[10px] uppercase tracking-[0.2em] text-white/40">
+                      <tr className="border-b border-white/10">
+                        <th className="py-2 pr-3">Round</th>
+                        <th className="py-2 pr-3">Sequential (ms)</th>
+                        <th className="py-2">Threaded (ms)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      {benchmarkData.map((row) => (
+                        <tr key={row.round} className="border-b border-white/5">
+                          <td className="py-2 pr-3 text-white/60">
+                            {row.round}
+                          </td>
+                          <td className="py-2 pr-3 text-amber-300">
+                            {formatMs(row.sequential)}
+                          </td>
+                          <td className="py-2 text-cyan-300">
+                            {formatMs(row.threaded)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
