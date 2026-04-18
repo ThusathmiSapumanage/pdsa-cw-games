@@ -5,19 +5,21 @@ import GameLayoutShell from "../layouts/GameLayoutShell";
 import AuthGate from "../auth/AuthGate";
 import QueensBoard from "./QueensBoard";
 import PerformanceStats from "./PerformanceStats";
+import PerformanceRunChart from "../common/PerformanceRunChart";
 import SolutionProgress from "./SolutionProgress";
-import {
-  Position,
-  StartResponse,
-  SubmitResponse,
-} from "./types";
-import {
-  startQueensRound,
-  submitQueensAnswer,
-} from "../../src/lib/QueensApi";
+import { Position, StartResponse, SubmitResponse } from "./types";
+import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
 
 const BOARD_SIZE = 16;
 const QUEEN_COUNT = 16;
+const MAX_BENCHMARK_POINTS = 12;
+
+type BenchmarkRow = {
+  round: number;
+  sequential: number;
+  threaded: number;
+  totalSolutions: number;
+};
 
 type GamePhase =
   | "idle"
@@ -35,6 +37,7 @@ export default function QueensPuzzleGame() {
   const [discovered, setDiscovered] = useState(0);
   const [totalSolutions, setTotalSolutions] = useState(0);
   const [error, setError] = useState("");
+  const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
 
   const handleStartRound = useCallback(async () => {
     setError("");
@@ -50,11 +53,22 @@ export default function QueensPuzzleGame() {
       setRoundData(response);
       setTotalSolutions(response.totalSolutions);
       setDiscovered(0);
+      setBenchmarkData((prev) => {
+        const nextRound = prev.length + 1;
+        const next = [
+          ...prev,
+          {
+            round: nextRound,
+            sequential: response.sequentialTimeMs,
+            threaded: response.threadedTimeMs,
+            totalSolutions: response.totalSolutions,
+          },
+        ];
+        return next.slice(-MAX_BENCHMARK_POINTS);
+      });
       setPhase("ready");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start round.",
-      );
+      setError(err instanceof Error ? err.message : "Failed to start round.");
       setPhase("idle");
     }
   }, []);
@@ -119,9 +133,7 @@ export default function QueensPuzzleGame() {
 
       setPhase(isAllFound ? "complete" : "result");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to submit answer.",
-      );
+      setError(err instanceof Error ? err.message : "Failed to submit answer.");
       setPhase("ready");
     }
   }, [roundData, queens]);
@@ -181,10 +193,7 @@ export default function QueensPuzzleGame() {
           />
 
           <div className="pt-4 border-t border-white/5">
-            <SolutionProgress
-              discovered={discovered}
-              total={totalSolutions}
-            />
+            <SolutionProgress discovered={discovered} total={totalSolutions} />
           </div>
 
           <div className="flex flex-col gap-2 pt-4 border-t border-white/5">
@@ -230,9 +239,8 @@ export default function QueensPuzzleGame() {
             Ready to Deploy
           </span>
           <p className="text-sm leading-relaxed mb-6">
-            Click{" "}
-            <span className="text-blue-400 font-bold">Deploy Queens</span> to
-            begin. The solver will calculate all valid {QUEEN_COUNT}-queen
+            Click <span className="text-blue-400 font-bold">Deploy Queens</span>{" "}
+            to begin. The solver will calculate all valid {QUEEN_COUNT}-queen
             placements on a {BOARD_SIZE}×{BOARD_SIZE} board.
           </p>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-black/50 rounded-full border border-white/10 text-[10px] font-mono">
@@ -293,6 +301,46 @@ export default function QueensPuzzleGame() {
           {lastResult && (
             <div className="text-[11px] font-mono text-white/60 text-center max-w-md">
               {lastResult.message}
+            </div>
+          )}
+
+          {benchmarkData.length > 0 && (
+            <div className="w-full max-w-[920px]">
+              <PerformanceRunChart
+                title="Queens Solver Timing"
+                data={benchmarkData}
+                series={[
+                  {
+                    key: "sequential",
+                    label: "Sequential",
+                    colorClass: "bg-amber-500",
+                    stroke: "#f59e0b",
+                  },
+                  {
+                    key: "threaded",
+                    label: "Threaded",
+                    colorClass: "bg-cyan-400",
+                    stroke: "#22d3ee",
+                  },
+                ]}
+                yLabel="Time (ms)"
+              />
+
+              <div className="mt-4">
+                <PerformanceRunChart
+                  title="Solutions Count"
+                  data={benchmarkData}
+                  series={[
+                    {
+                      key: "totalSolutions",
+                      label: "Solutions",
+                      colorClass: "bg-emerald-500",
+                      stroke: "#10b981",
+                    },
+                  ]}
+                  yLabel="Total Solutions"
+                />
+              </div>
             </div>
           )}
         </>
