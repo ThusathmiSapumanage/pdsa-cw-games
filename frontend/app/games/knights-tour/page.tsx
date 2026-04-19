@@ -209,6 +209,29 @@ export default function KnightsTourPage() {
     setIsPlaying(false);
   };
 
+  const handleBoardSizeChange = (value: string) => {
+    const isBusy =
+      loadingStart ||
+      loadingSubmit ||
+      loadingHint ||
+      loadingCorrectAnswer ||
+      loadingBenchmark;
+    if (isBusy) {
+      showNotify("warning", "Please Wait", "Finish the current request before changing board size.");
+      return;
+    }
+
+    const nextBoardSize = Number(value) as 8 | 16;
+
+    if (nextBoardSize === boardSize) return;
+
+    resetRoundState();
+    setRoundData(null);
+    setBenchmarkData([]);
+    setHintCooldown(0);
+    setBoardSize(nextBoardSize);
+  };
+
   const handleStartRound = async () => {
     if (!hasKnightTourAuth()) {
       showNotify("error", "Not Logged In", "Please log in before starting a round.");
@@ -513,7 +536,7 @@ export default function KnightsTourPage() {
               <AlgoDropdown
                 label="Board Size"
                 value={String(boardSize)}
-                onChange={(value) => setBoardSize(Number(value) as 8 | 16)}
+                onChange={handleBoardSizeChange}
                 options={[
                   { value: "8", label: "8 × 8 Board" },
                   { value: "16", label: "16 × 16 Board" },
