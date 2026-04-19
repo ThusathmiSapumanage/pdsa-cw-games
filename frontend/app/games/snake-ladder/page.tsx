@@ -243,13 +243,10 @@ export default function SnakeLadderPage() {
           gameState ? (
             <div className="flex flex-col gap-4">
               {/* Algorithm timing results */}
-              <ResultsPanel
-                results={gameState.algorithmResults}
-              />
-              {outcomeMessage && (
-                <div className="mt-3 px-3 py-2 rounded border font-mono text-xs leading-relaxed bg-yellow-500/10 border-yellow-500/30 text-yellow-400">
-                  {outcomeMessage}
-                </div>
+              {outcome && (
+                <ResultsPanel
+                  results={gameState.algorithmResults}
+                />
               )}
 
               {/* Answer challenge — always shown */}
@@ -257,6 +254,7 @@ export default function SnakeLadderPage() {
                 choices={gameState.choices}
                 selectedChoice={selectedChoice}
                 loading={loading}
+                outcomeMessage={outcomeMessage}
                 onSubmit={handleSubmitAnswer}
               />
 

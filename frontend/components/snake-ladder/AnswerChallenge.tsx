@@ -6,6 +6,7 @@ interface Props {
   choices:        number[];          // exactly 3 integers from the backend
   selectedChoice: number | null;     // index of what the player clicked, or null
   loading:        boolean;
+  outcomeMessage?: string | null;
   onSubmit:       (choiceIndex: number) => void;
 }
 
@@ -13,6 +14,7 @@ export default function AnswerChallenge({
   choices,
   selectedChoice,
   loading,
+  outcomeMessage,
   onSubmit,
 }: Props) {
   return (
@@ -23,7 +25,7 @@ export default function AnswerChallenge({
           Challenge
         </p>
         <p className="text-sm text-white/80 mt-1 font-mono">
-          What is the minimum number of dice throws to reach the last cell?
+          Choose the minimum number of dice throws to reach the last cell
         </p>
       </div>
 
@@ -41,6 +43,13 @@ export default function AnswerChallenge({
           />
         ))}
       </div>
+
+      {/* Submitted answer feedback */}
+      {selectedChoice !== null && !loading && outcomeMessage && (
+        <div className="px-3 py-2 rounded border font-mono text-xs leading-relaxed bg-yellow-500/10 border-yellow-500/30 text-yellow-400">
+          {outcomeMessage}
+        </div>
+      )}
 
       {/* Hint */}
       {selectedChoice === null && !loading && (
