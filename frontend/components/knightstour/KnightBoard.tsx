@@ -161,7 +161,7 @@ export default function KnightBoard({
             title={`(${col}, ${row})`}
           >
             <span
-              className={`absolute left-1.5 top-1.5 z-10 ${coordinateSize} opacity-70`}
+              className={`absolute left-1.5 top-1.5 z-10 ${coordinateSize} ${boardSize === 16 ? "opacity-0" : "opacity-70"}`}
             >
               {col},{row}
             </span>
