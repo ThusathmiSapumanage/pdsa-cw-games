@@ -26,6 +26,8 @@ import java.util.List;
 @Repository
 public class SnakeLadderRepository {
 
+    private static final String GAME_NAME = "Snake and Ladder";
+
     private final JdbcTemplate jdbcTemplate;
 
     public SnakeLadderRepository(JdbcTemplate jdbcTemplate) {
@@ -192,14 +194,7 @@ public class SnakeLadderRepository {
     }
 
     public int createGameSession(int playerId) {
-        Integer gameId = jdbcTemplate.queryForObject(
-                "SELECT Game_Id FROM Game WHERE Game_Name = ?",
-                Integer.class,
-                "Snake and Ladder");
-
-        if (gameId == null) {
-            throw new IllegalStateException("Game 'Snake and Ladder' not found in Game table.");
-        }
+        int gameId = ensureGameId();
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -218,6 +213,30 @@ public class SnakeLadderRepository {
         }
 
         return key.intValue();
+    }
+
+    private int ensureGameId() {
+        Integer gameId = jdbcTemplate.query(
+                "SELECT Game_Id FROM Game WHERE Game_Name = ?",
+                rs -> rs.next() ? rs.getInt("Game_Id") : null,
+                GAME_NAME);
+
+        if (gameId != null) {
+            return gameId;
+        }
+
+        jdbcTemplate.update("INSERT INTO Game (Game_Name) VALUES (?)", GAME_NAME);
+
+        Integer createdGameId = jdbcTemplate.queryForObject(
+                "SELECT Game_Id FROM Game WHERE Game_Name = ?",
+                Integer.class,
+                GAME_NAME);
+
+        if (createdGameId == null) {
+            throw new IllegalStateException("Failed to create Game '" + GAME_NAME + "'.");
+        }
+
+        return createdGameId;
     }
 
     // -------------------------------------------------------------------------

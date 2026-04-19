@@ -13,6 +13,7 @@ import AnswerChallenge from "../../../components/snake-ladder/AnswerChallenge";
 import PerformanceRunChart from "../../../components/snake-ladder/PerformanceRunChart";
 import Modal from "../../../components/common/Modal";
 import type { GameState, BoardItem, AlgorithmResult } from "../../../components/snake-ladder/types";
+import { parseApiError } from "../../../services/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -27,23 +28,58 @@ function extractCorrectAnswer(message: string): number | null {
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
-async function startRound(n: number, playerId: number) {
+type PlayerProfile = {
+  playerId?: number;
+  playerEmail?: string;
+};
+
+async function resolvePlayerId(email: string, token: string): Promise<number> {
+  const res = await fetch(`${BACKEND_URL}/api/players`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res));
+  }
+
+  const players = (await res.json()) as PlayerProfile[];
+  const normalizedEmail = email.trim().toLowerCase();
+  const currentPlayer = Array.isArray(players)
+    ? players.find(
+        (player) => player.playerEmail?.trim().toLowerCase() === normalizedEmail
+      )
+    : null;
+
+  if (!currentPlayer?.playerId) {
+    throw new Error("Player account not found for the current login.");
+  }
+
+  return currentPlayer.playerId;
+}
+
+async function startRound(n: number, playerId: number, token: string) {
   const res = await fetch(`${BACKEND_URL}/api/snake-ladder/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ n, playerId }),
   });
-  if (!res.ok) throw new Error("Failed to start round");
+  if (!res.ok) throw new Error(await parseApiError(res));
   return res.json();          // { items, algorithmResults, choices, n, sessionId }
 }
 
-async function submitAnswer(sessionId: number, playerAnswer: number) {
+async function submitAnswer(sessionId: number, playerAnswer: number, token: string) {
   const res = await fetch(`${BACKEND_URL}/api/snake-ladder/answer`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ sessionId, playerAnswer }),
   });
-  if (!res.ok) throw new Error("Failed to submit answer");
+  if (!res.ok) throw new Error(await parseApiError(res));
   return res.json();          // { outcome: "WIN" | "LOSE" | "DRAW", message: string }
 }
 
@@ -61,7 +97,7 @@ export default function SnakeLadderPage() {
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [showPerformanceChart, setShowPerformanceChart] = useState(false);
-  const { userId } = useAuth();
+  const { accessToken, userEmail } = useAuth();
 
   const handleStart = useCallback(async () => {
     setLoading(true);
@@ -71,14 +107,15 @@ export default function SnakeLadderPage() {
     setSelectedChoice(null);
     setGameState(null);
 
-    if (!userId) {
-      setError("Logged-in player ID is required to start the game.");
+    if (!accessToken || !userEmail) {
+      setError("Please login before starting the game.");
       setLoading(false);
       return;
     }
 
     try {
-      const data = await startRound(boardSize, userId);
+      const currentPlayerId = await resolvePlayerId(userEmail, accessToken);
+      const data = await startRound(boardSize, currentPlayerId, accessToken);
       setGameState(data);
       setSessionId(data.sessionId);
     } catch (e: unknown) {
@@ -86,16 +123,16 @@ export default function SnakeLadderPage() {
     } finally {
       setLoading(false);
     }
-  }, [boardSize, userId]);
+  }, [accessToken, boardSize, userEmail]);
 
   const handleSubmitAnswer = useCallback(async (choiceIndex: number) => {
-    if (!gameState || sessionId == null) return;
+    if (!gameState || sessionId == null || !accessToken) return;
     setSelectedChoice(choiceIndex);
     setLoading(true);
     try {
       // Get the actual answer value from the choices array
       const playerAnswer = gameState.choices[choiceIndex];
-      const data = await submitAnswer(sessionId, playerAnswer);
+      const data = await submitAnswer(sessionId, playerAnswer, accessToken);
       setOutcome(data.outcome);
       setOutcomeMessage(data.message);
       setCorrectAnswer(extractCorrectAnswer(data.message));
@@ -104,7 +141,7 @@ export default function SnakeLadderPage() {
     } finally {
       setLoading(false);
     }
-  }, [gameState, sessionId]);
+  }, [accessToken, gameState, sessionId]);
 
   return (
     <AuthGate>
