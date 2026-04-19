@@ -45,6 +45,10 @@ export default function LoginPage() {
     return next && next.startsWith("/") ? next : "/";
   }, [searchParams]);
 
+  const currentTab = useMemo(() => {
+    return searchParams?.get("tab") === "register" ? "register" : "login";
+  }, [searchParams]);
+
   useEffect(() => {
     if (isReady && isAuthenticated) {
       router.replace(nextPath);
@@ -52,15 +56,14 @@ export default function LoginPage() {
   }, [isReady, isAuthenticated, router, nextPath]);
 
   useEffect(() => {
-    const tab = searchParams?.get("tab") === "register" ? "register" : "login";
-    setActiveTab(tab);
+    setActiveTab(currentTab);
     setEmail("");
     setPassword("");
     setFullName("");
     setConfirmPassword("");
     setShowPassword(false);
     setError(null);
-  }, [searchParams]);
+  }, [currentTab]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();

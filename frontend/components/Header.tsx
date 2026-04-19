@@ -41,6 +41,12 @@ export default function Header() {
   const showSignUp = isLoginPage && currentTab === "login";
   const showBothButtons = !isLoginPage;
 
+  const nextParam = searchParams?.get("next");
+  const signInHref = nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : "/login";
+  const signUpHref = nextParam 
+    ? `/login?tab=register&next=${encodeURIComponent(nextParam)}` 
+    : "/login?tab=register";
+
   return (
     <header
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
@@ -95,7 +101,7 @@ export default function Header() {
             <>
               {(showSignIn || showBothButtons) && (
                 <Link
-                  href="/login"
+                  href={signInHref}
                   className="inline-flex items-center rounded-full bg-blue-600 px-5 py-2.5 text-[11px] font-black tracking-[0.2em] uppercase text-white hover:bg-blue-500 transition-colors"
                 >
                   Sign In
@@ -103,7 +109,7 @@ export default function Header() {
               )}
               {(showSignUp || showBothButtons) && (
                 <Link
-                  href="/login?tab=register"
+                  href={signUpHref}
                   className="inline-flex items-center rounded-full bg-blue-600 px-5 py-2.5 text-[11px] font-black tracking-[0.2em] uppercase text-white hover:bg-blue-500 transition-colors"
                 >
                   Sign Up

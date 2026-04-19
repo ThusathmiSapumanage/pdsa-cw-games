@@ -317,6 +317,7 @@ export default function MinimumCostPage() {
     setIsPlaying(false);
     setCurrentStep(undefined);
     setResult(null);
+    setBenchmarkData([]);
   };
 
   const runGame = async () => {

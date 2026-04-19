@@ -210,6 +210,17 @@ export default function KnightsTourPage() {
   };
 
   const handleBoardSizeChange = (value: string) => {
+    const isBusy =
+      loadingStart ||
+      loadingSubmit ||
+      loadingHint ||
+      loadingCorrectAnswer ||
+      loadingBenchmark;
+    if (isBusy) {
+      showNotify("warning", "Please Wait", "Finish the current request before changing board size.");
+      return;
+    }
+
     const nextBoardSize = Number(value) as 8 | 16;
 
     if (nextBoardSize === boardSize) return;
