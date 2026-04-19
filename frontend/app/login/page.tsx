@@ -20,9 +20,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { isAuthenticated, login, isReady } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"login" | "register">(
-    searchParams?.get("tab") === "register" ? "register" : "login"
-  );
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -56,6 +54,12 @@ export default function LoginPage() {
   useEffect(() => {
     const tab = searchParams?.get("tab") === "register" ? "register" : "login";
     setActiveTab(tab);
+    setEmail("");
+    setPassword("");
+    setFullName("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setError(null);
   }, [searchParams]);
 
   const handleLogin = async (event: React.FormEvent) => {
