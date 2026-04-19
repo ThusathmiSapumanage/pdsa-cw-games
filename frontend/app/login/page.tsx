@@ -9,13 +9,6 @@ import {
   registerPlayer,
 } from "../../services/api";
 
-const tabs = [
-  { id: "login", label: "Login" },
-  { id: "register", label: "Register" },
-] as const;
-
-type TabId = (typeof tabs)[number]["id"];
-
 function isLikelyJwt(token: string | null | undefined): boolean {
   if (!token || typeof token !== "string") return false;
   const parts = token.split(".");
@@ -27,9 +20,9 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { isAuthenticated, login, isReady } = useAuth();
 
-  const initialTab: TabId =
-    searchParams?.get("tab") === "register" ? "register" : "login";
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const [activeTab, setActiveTab] = useState<"login" | "register">(
+    searchParams?.get("tab") === "register" ? "register" : "login"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -60,15 +53,10 @@ export default function LoginPage() {
     }
   }, [isReady, isAuthenticated, router, nextPath]);
 
-  const handleTabChange = (tabId: TabId) => {
-    setActiveTab(tabId);
-    setEmail("");
-    setPassword("");
-    setFullName("");
-    setConfirmPassword("");
-    setShowPassword(false);
-    setError(null);
-  };
+  useEffect(() => {
+    const tab = searchParams?.get("tab") === "register" ? "register" : "login";
+    setActiveTab(tab);
+  }, [searchParams]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -185,23 +173,6 @@ export default function LoginPage() {
             Secure access to algorithm simulations. Login or register to continue.
           </p>
 
-          <div className="mt-10 flex gap-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                  activeTab === tab.id
-                    ? "bg-blue-600 text-white border-blue-500"
-                    : "text-white/60 border-white/10 hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           {error && (
             <div className="mt-6 border border-red-500/30 bg-red-500/10 text-red-300 text-xs px-4 py-3 rounded-lg">
               {error}
@@ -240,7 +211,7 @@ export default function LoginPage() {
                 disabled={isSubmitting || !isLoginReady}
                 className="mt-auto bg-white text-black py-3 rounded font-bold disabled:opacity-50"
               >
-                {isSubmitting ? "Logging In..." : "Login"}
+                {isSubmitting ? "Signing In..." : "Sign In"}
               </button>
             </form>
           ) : (
@@ -282,7 +253,7 @@ export default function LoginPage() {
                 disabled={isSubmitting || !isRegisterReady}
                 className="mt-auto bg-white text-black py-3 rounded font-bold disabled:opacity-50"
               >
-                {isSubmitting ? "Registering..." : "Register"}
+                {isSubmitting ? "Signing Up..." : "Sign Up"}
               </button>
             </form>
           )}
