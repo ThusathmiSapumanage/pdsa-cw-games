@@ -15,7 +15,7 @@ const API_BASE_URL =
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
 
-  const possibleKeys = ["token", "authToken", "accessToken", "jwtToken"];
+  const possibleKeys = ["algocore_auth", "token", "authToken", "accessToken", "jwtToken"];
 
   for (const key of possibleKeys) {
     const rawValue = localStorage.getItem(key);
