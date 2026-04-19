@@ -27,6 +27,11 @@ function extractCorrectAnswer(message: string): number | null {
 // These hit your Spring Boot backend at localhost:8080
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const BOARD_SIZE_OPTIONS = [6, 7, 8, 9, 10, 11, 12];
+const BOARD_SIZE_DROPDOWN_OPTIONS = BOARD_SIZE_OPTIONS.map((n) => ({
+  value: String(n),
+  label: `${n}×${n}`,
+}));
 
 type PlayerProfile = {
   playerId?: number;
@@ -153,29 +158,12 @@ export default function SnakeLadderPage() {
         controls={
           <div className="flex flex-col gap-4">
             {/* Board size selector */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-widest text-white/50 font-mono">
-                Board Size (N×N)
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[6, 7, 8, 12].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setBoardSize(n)}
-                    className={`
-                      py-2 rounded font-mono text-xs font-bold uppercase tracking-wider
-                      border transition-all duration-200
-                      ${boardSize === n
-                        ? "bg-white text-black border-white"
-                        : "bg-transparent text-white/50 border-white/20 hover:border-white/50 hover:text-white"
-                      }
-                    `}
-                  >
-                    {n}×{n}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <AlgoDropdown
+              label="Board Size (N×N)"
+              value={String(boardSize)}
+              onChange={(value) => setBoardSize(Number(value))}
+              options={BOARD_SIZE_DROPDOWN_OPTIONS}
+            />
 
             {/* Algorithm selector */}
             <AlgoDropdown
