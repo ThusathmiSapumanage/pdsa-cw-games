@@ -27,7 +27,9 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { isAuthenticated, login, isReady } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<TabId>("login");
+  const initialTab: TabId =
+    searchParams?.get("tab") === "register" ? "register" : "login";
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
