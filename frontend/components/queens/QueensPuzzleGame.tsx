@@ -13,7 +13,7 @@ import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
 const BOARD_SIZE = 16;
 const MAX_BENCHMARK_POINTS = 12;
 
-type QueenCountOption = 8 | 16;
+type QueenCountOption = 8;
 
 type BenchmarkRow = {
   round: number;
@@ -32,7 +32,7 @@ type GamePhase =
 
 export default function QueensPuzzleGame() {
   const [phase, setPhase] = useState<GamePhase>("idle");
-  const [queenCount, setQueenCount] = useState<QueenCountOption>(8);
+  const queenCount: QueenCountOption = 8;
   const [activeQueenCount, setActiveQueenCount] = useState<QueenCountOption>(8);
   const [roundData, setRoundData] = useState<StartResponse | null>(null);
   const [queens, setQueens] = useState<Position[]>([]);
@@ -209,30 +209,17 @@ export default function QueensPuzzleGame() {
             <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-3 block">
               Queens to place
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {([8, 16] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setQueenCount(option)}
-                  className={`py-3 rounded font-bold uppercase tracking-widest text-xs transition-colors border ${
-                    queenCount === option
-                      ? "bg-blue-600 text-white border-blue-500"
-                      : "bg-transparent text-white/60 border-white/10 hover:border-white/30 hover:text-white"
-                  }`}
-                >
-                  {option} Queens
-                </button>
-              ))}
+            <div className="py-3 rounded font-bold uppercase tracking-widest text-xs bg-blue-600 text-white border border-blue-500 text-center">
+              8 Queens
             </div>
             <p className="mt-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/30">
-              Spec default: 8 queens on 16×16. Pick 16 for classic N-queens.
+              Spec default: 8 queens on 16×16.
             </p>
           </div>
 
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
             Time-bounded search — sequential and threaded each run for ~15 s.
-            For {queenCount === 8 ? "8 queens on 16×16 (intractable, sampled)" : "16 queens on 16×16 (full enumeration)"}.
+            For 8 queens on 16×16 (intractable, sampled).
           </div>
 
           <button
