@@ -188,9 +188,7 @@ export default function MinimumCostPage() {
   const MIN_N = 50;
   const MAX_N = 100;
 
-  const [n, setN] = useState(
-    () => String(Math.floor(Math.random() * (MAX_N - MIN_N + 1)) + MIN_N)
-  );
+  const [n, setN] = useState(() => String(MIN_N));
   const [selectedAlgo, setSelectedAlgo] = useState<"greedy" | "hungarian">("greedy");
   const [isLoading, setIsLoading] = useState(false);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
@@ -231,6 +229,11 @@ export default function MinimumCostPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const initialRandomN = Math.floor(Math.random() * (MAX_N - MIN_N + 1)) + MIN_N;
+    setN(String(initialRandomN));
+  }, [MAX_N, MIN_N]);
 
   useEffect(() => {
     if (isPlaying && result) {
@@ -397,6 +400,8 @@ export default function MinimumCostPage() {
     clearBoardForRetry();
     setIsRollingN(true);
 
+    const initialValue = Number(n);
+
     let tickCount = 0;
     const totalTicks = 22;
     let latestValue = getRandomN();
@@ -415,6 +420,14 @@ export default function MinimumCostPage() {
         if (rollingTimerRef.current) {
           clearInterval(rollingTimerRef.current);
           rollingTimerRef.current = null;
+        }
+
+        if (Number.isFinite(initialValue) && latestValue === initialValue) {
+          let attempts = 0;
+          while (attempts < 10 && latestValue === initialValue) {
+            latestValue = getRandomN();
+            attempts += 1;
+          }
         }
 
         setN(String(latestValue));
