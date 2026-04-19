@@ -92,6 +92,11 @@ async function submitAnswer(sessionId: number, playerAnswer: number, token: stri
   return res.json();          // { outcome: "WIN" | "LOSE" | "DRAW", message: string }
 }
 
+async function cleanupBenchmarkSession(data: StartRoundData, token: string) {
+  const correctAnswer = getMinimumThrows(data);
+  await submitAnswer(data.sessionId, correctAnswer, token);
+}
+
 function getAlgorithmTime(data: StartRoundData, algorithmName: string) {
   const result = data.algorithmResults.find(
     (item) => item.algorithmName.toLowerCase() === algorithmName.toLowerCase()
@@ -117,6 +122,7 @@ export default function SnakeLadderPage() {
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [benchmarking, setBenchmarking] = useState(false);
+  const [benchmarkMode, setBenchmarkMode] = useState(false);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
   const { accessToken, userEmail } = useAuth();
 
@@ -127,6 +133,7 @@ export default function SnakeLadderPage() {
     setOutcomeMessage(null);
     setSelectedChoice(null);
     setGameState(null);
+    setBenchmarkMode(false);
 
     if (!accessToken || !userEmail) {
       setError("Please login before starting the game.");
@@ -165,8 +172,13 @@ export default function SnakeLadderPage() {
       const currentPlayerId = await resolvePlayerId(userEmail, accessToken);
       const runs: BenchmarkRow[] = [];
 
+      setBenchmarkMode(true);
+
       for (let i = 1; i <= 20; i++) {
         const data = await startRound(boardSize, currentPlayerId, accessToken) as StartRoundData;
+
+        // Clean up the session server-side by submitting the known correct answer.
+        await cleanupBenchmarkSession(data, accessToken);
 
         runs.push({
           round: i,
@@ -347,6 +359,7 @@ export default function SnakeLadderPage() {
                 choices={gameState.choices}
                 selectedChoice={selectedChoice}
                 loading={loading || benchmarking}
+                disabled={benchmarkMode}
                 outcomeMessage={outcomeMessage}
                 onSubmit={handleSubmitAnswer}
               />

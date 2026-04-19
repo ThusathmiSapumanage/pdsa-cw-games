@@ -6,6 +6,7 @@ interface Props {
   choices:        number[];          // exactly 3 integers from the backend
   selectedChoice: number | null;     // index of what the player clicked, or null
   loading:        boolean;
+  disabled?:      boolean;
   outcomeMessage?: string | null;
   onSubmit:       (choiceIndex: number) => void;
 }
@@ -14,6 +15,7 @@ export default function AnswerChallenge({
   choices,
   selectedChoice,
   loading,
+  disabled,
   outcomeMessage,
   onSubmit,
 }: Props) {
@@ -37,7 +39,7 @@ export default function AnswerChallenge({
             value={value}
             index={index}
             isSelected={selectedChoice === index}
-            isDisabled={selectedChoice !== null || loading}
+            isDisabled={selectedChoice !== null || loading || Boolean(disabled)}
             delay={index * 0.08}
             onSelect={() => onSubmit(index)}
           />
