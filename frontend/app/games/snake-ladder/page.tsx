@@ -289,7 +289,7 @@ export default function SnakeLadderPage() {
         }
 
         visualization={
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
             <SnakeLadderBoard
               n={boardSize}
               items={gameState?.items ?? []}
@@ -298,60 +298,36 @@ export default function SnakeLadderPage() {
             />
 
             {benchmarkData.length > 0 && (
-              <>
-                <div className="rounded-xl border border-white/5 bg-[#0a0a0a] p-8">
-                  <PerformanceRunChart
-                    title="20-Round Performance Chart"
-                    data={benchmarkData}
-                    series={[
-                      {
-                        key: "bfs",
-                        label: "BFS",
-                        colorClass: "bg-blue-500",
-                        stroke: "#3b82f6",
-                      },
-                      {
-                        key: "dp",
-                        label: "DP",
-                        colorClass: "bg-emerald-500",
-                        stroke: "#10b981",
-                      },
-                    ]}
-                    yLabel="Time (ms)"
-                  />
-                </div>
+              <div className="rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
+                  20-Run Benchmark Table
+                </p>
 
-                <div className="rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
-                  <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
-                    20-Run Benchmark Table
-                  </p>
-
-                  <div className="custom-scrollbar max-h-64 overflow-auto">
-                    <table className="w-full text-left text-[11px] font-mono">
-                      <thead className="border-b border-white/10 text-white/50">
-                        <tr>
-                          <th className="p-2">Round</th>
-                          <th className="p-2">Board Size</th>
-                          <th className="p-2">BFS (ms)</th>
-                          <th className="p-2">DP (ms)</th>
-                          <th className="p-2">Throws</th>
+                <div className="custom-scrollbar max-h-64 overflow-auto">
+                  <table className="w-full text-left text-[11px] font-mono">
+                    <thead className="border-b border-white/10 text-white/50">
+                      <tr>
+                        <th className="p-2">Round</th>
+                        <th className="p-2">Board Size</th>
+                        <th className="p-2">BFS (ms)</th>
+                        <th className="p-2">DP (ms)</th>
+                        <th className="p-2">Throws</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {benchmarkData.map((row) => (
+                        <tr key={row.round} className="border-b border-white/5">
+                          <td className="p-2 text-white/75">{row.round}</td>
+                          <td className="p-2 text-white/75">{row.n}×{row.n}</td>
+                          <td className="p-2 text-blue-300">{row.bfs.toFixed(3)}</td>
+                          <td className="p-2 text-emerald-300">{row.dp.toFixed(3)}</td>
+                          <td className="p-2 text-yellow-300">{row.minimumThrows}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {benchmarkData.map((row) => (
-                          <tr key={row.round} className="border-b border-white/5">
-                            <td className="p-2 text-white/75">{row.round}</td>
-                            <td className="p-2 text-white/75">{row.n}×{row.n}</td>
-                            <td className="p-2 text-blue-300">{row.bfs.toFixed(3)}</td>
-                            <td className="p-2 text-emerald-300">{row.dp.toFixed(3)}</td>
-                            <td className="p-2 text-yellow-300">{row.minimumThrows}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </>
+              </div>
             )}
           </div>
         }
@@ -419,6 +395,31 @@ export default function SnakeLadderPage() {
           ) : (
             <IdleResults />
           )
+        }
+        bottomSection={
+          benchmarkData.length > 0 ? (
+            <div className="rounded-xl border border-white/5 bg-[#0a0a0a] p-8">
+              <PerformanceRunChart
+                title="20-Round Performance Chart"
+                data={benchmarkData}
+                series={[
+                  {
+                    key: "bfs",
+                    label: "BFS",
+                    colorClass: "bg-blue-500",
+                    stroke: "#3b82f6",
+                  },
+                  {
+                    key: "dp",
+                    label: "DP",
+                    colorClass: "bg-emerald-500",
+                    stroke: "#10b981",
+                  },
+                ]}
+                yLabel="Time (ms)"
+              />
+            </div>
+          ) : null
         }
       />
 
