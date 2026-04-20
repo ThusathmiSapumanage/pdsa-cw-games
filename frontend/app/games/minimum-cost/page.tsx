@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 import AuthGate from "../../../components/auth/AuthGate";
-import AlgoInput from "../../../components/forms/AlgoInput";
 import AlgoNotify, { NotifyType } from "../../../components/forms/AlgoNotify";
 import MinCostAnalytics from "../../../components/mincost/MinCostAnalytics";
 import PlaybackToolbar from "../../../components/mincost/PlaybackToolbar";
@@ -186,10 +185,14 @@ function MatrixTable({
 }
 
 export default function MinimumCostPage() {
-  const [n, setN] = useState("50");
+  const MIN_N = 50;
+  const MAX_N = 100;
+
+  const [n, setN] = useState(() => String(MIN_N));
   const [selectedAlgo, setSelectedAlgo] = useState<"greedy" | "hungarian">("greedy");
   const [isLoading, setIsLoading] = useState(false);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [isRollingN, setIsRollingN] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
@@ -197,6 +200,7 @@ export default function MinimumCostPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const rollingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [notify, setNotify] = useState<{
     show: boolean;
@@ -217,6 +221,19 @@ export default function MinimumCostPage() {
     }
     fetchHistory();
   }, [result]);
+
+  useEffect(() => {
+    return () => {
+      if (rollingTimerRef.current) {
+        clearInterval(rollingTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const initialRandomN = Math.floor(Math.random() * (MAX_N - MIN_N + 1)) + MIN_N;
+    setN(String(initialRandomN));
+  }, [MAX_N, MIN_N]);
 
   useEffect(() => {
     if (isPlaying && result) {
@@ -258,12 +275,12 @@ export default function MinimumCostPage() {
   const validateInputs = () => {
     const nValue = Number(n);
 
-    if (!Number.isInteger(nValue) || nValue < 50 || nValue > 100) {
+    if (!Number.isInteger(nValue) || nValue < MIN_N || nValue > MAX_N) {
       setNotify({
         show: true,
         type: "error",
         title: "Input Error",
-        message: "Enter a valid N value between 50 and 100.",
+        message: `Enter a valid N value between ${MIN_N} and ${MAX_N}.`,
       });
       return null;
     }
@@ -299,9 +316,17 @@ export default function MinimumCostPage() {
     return data as ApiResponse;
   };
 
+  const clearBoardForRetry = () => {
+    setIsPlaying(false);
+    setCurrentStep(undefined);
+    setResult(null);
+    setBenchmarkData([]);
+  };
+
   const runGame = async () => {
     if (!validateInputs()) return;
 
+    clearBoardForRetry();
     setIsLoading(true);
     try {
       const data = await callStartApi();
@@ -328,6 +353,7 @@ export default function MinimumCostPage() {
   const runBenchmark20 = async () => {
     if (!validateInputs()) return;
 
+    clearBoardForRetry();
     setIsBenchmarking(true);
     const runs: BenchmarkRow[] = [];
 
@@ -365,11 +391,58 @@ export default function MinimumCostPage() {
     }
   };
 
+  const getRandomN = () =>
+    Math.floor(Math.random() * (MAX_N - MIN_N + 1)) + MIN_N;
+
+  const spinRandomN = () => {
+    if (isLoading || isBenchmarking || isRollingN) return;
+
+    clearBoardForRetry();
+    setIsRollingN(true);
+
+    const initialValue = Number(n);
+
+    let tickCount = 0;
+    const totalTicks = 22;
+    let latestValue = getRandomN();
+    setN(String(latestValue));
+
+    if (rollingTimerRef.current) {
+      clearInterval(rollingTimerRef.current);
+    }
+
+    rollingTimerRef.current = setInterval(() => {
+      tickCount += 1;
+      latestValue = getRandomN();
+      setN(String(latestValue));
+
+      if (tickCount >= totalTicks) {
+        if (rollingTimerRef.current) {
+          clearInterval(rollingTimerRef.current);
+          rollingTimerRef.current = null;
+        }
+
+        if (Number.isFinite(initialValue) && latestValue === initialValue) {
+          let attempts = 0;
+          while (attempts < 10 && latestValue === initialValue) {
+            latestValue = getRandomN();
+            attempts += 1;
+          }
+        }
+
+        setN(String(latestValue));
+        setIsRollingN(false);
+      }
+    }, 50);
+  };
+
   const maxSteps = result
     ? selectedAlgo === "greedy"
       ? result.greedyAssignments.length
       : result.hungarianSteps.length
     : 0;
+
+  const displayN = n.padStart(3, "0");
 
   const benchmarkChart =
     benchmarkData.length > 0 ? (
@@ -409,21 +482,54 @@ export default function MinimumCostPage() {
                   Coursework Rules
                 </p>
                 <p className="mt-1 text-[11px] text-blue-100/90">
-                  Enter N between 50 and 100. The backend automatically generates costs randomly from 20 to 200 for each round.
+                  N is randomized between 50 and 100 using the Randomize N button. For each round, the backend generates matrix costs randomly from 20 to 200.
                 </p>
               </div>
 
-              <AlgoInput
-                label="Number of Tasks / Employees (N)"
-                type="number"
-                value={n}
-                onChange={setN}
-                required
-              />
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-3">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-white/50">
+                  Number of Tasks / Employees (N)
+                </p>
+                <div className="relative mt-2 overflow-hidden rounded-md border border-cyan-500/20 bg-[#020508] px-4 py-3 text-center font-mono text-2xl font-bold text-cyan-100">
+                  <motion.span
+                    className="relative z-10 inline-block w-[3ch] tabular-nums tracking-[0.18em]"
+                    animate={
+                      isRollingN
+                        ? {
+                            opacity: [0.7, 1, 0.75, 1],
+                            scale: [1, 1.04, 0.98, 1],
+                            textShadow: [
+                              "0 0 6px rgba(34,211,238,0.45)",
+                              "0 0 18px rgba(34,211,238,0.8)",
+                              "0 0 8px rgba(34,211,238,0.55)",
+                            ],
+                          }
+                        : {
+                            opacity: 1,
+                            scale: 1,
+                            textShadow: "0 0 8px rgba(34,211,238,0.35)",
+                          }
+                    }
+                    transition={isRollingN ? { duration: 0.18, repeat: Infinity, ease: "linear" } : { duration: 0.2 }}
+                  >
+                    {displayN}
+                  </motion.span>
+                </div>
+              </div>
+
+              <div className="-mt-2">
+                <button
+                  onClick={spinRandomN}
+                  disabled={isLoading || isBenchmarking || isRollingN}
+                  className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 transition-all hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isRollingN ? "SPINNING..." : "RANDOMIZE N"}
+                </button>
+              </div>
 
               <button
                 onClick={runGame}
-                disabled={isLoading || isBenchmarking}
+                disabled={isLoading || isBenchmarking || isRollingN}
                 className="w-full rounded-lg bg-white py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-black shadow-lg transition-all hover:bg-blue-600 hover:text-white disabled:opacity-30"
               >
                 {isLoading ? "CALCULATING..." : "GENERATE & RUN"}
@@ -431,7 +537,7 @@ export default function MinimumCostPage() {
 
               <button
                 onClick={runBenchmark20}
-                disabled={isLoading || isBenchmarking}
+                disabled={isLoading || isBenchmarking || isRollingN}
                 className="w-full rounded-lg border border-cyan-500/30 bg-cyan-500/10 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300 transition-all hover:bg-cyan-500/20 disabled:opacity-30"
               >
                 {isBenchmarking ? "RUNNING 20 TIMES..." : "RUN 20 TIMES"}

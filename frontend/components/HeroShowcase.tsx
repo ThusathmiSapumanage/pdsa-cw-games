@@ -17,13 +17,13 @@ type HeroGame = {
 const heroGames: HeroGame[] = [
   {
     id: "01",
-    title: "16 Queens' Puzzle",
-    tag: "CONCURRENCY",
-    tagline: "Sequential vs Threaded",
+    title: "Minimum Cost",
+    tag: "ASSIGNMENT",
+    tagline: "Assign workers to jobs, optimally.",
     description:
-      "Place 8 queens on a 16x16 board where none threaten the other. Watch sequential and threaded solvers race across every valid configuration.",
-    link: "/games/sixteen-queens",
-    poster: "/posters/sixteen-queens.png",
+      "Solve the classic assignment problem with a Hungarian-style optimizer. Compare greedy choices to the provably optimal matching.",
+    link: "/games/minimum-cost",
+    poster: "/posters/minimum-cost.png",
   },
   {
     id: "02",
@@ -57,13 +57,13 @@ const heroGames: HeroGame[] = [
   },
   {
     id: "05",
-    title: "Minimum Cost",
-    tag: "ASSIGNMENT",
-    tagline: "Assign workers to jobs, optimally.",
+    title: "16 Queens' Puzzle",
+    tag: "CONCURRENCY",
+    tagline: "Sequential vs Threaded",
     description:
-      "Solve the classic assignment problem with a Hungarian-style optimizer. Compare greedy choices to the provably optimal matching.",
-    link: "/games/minimum-cost",
-    poster: "/posters/minimum-cost.png",
+      "Place 8 queens on a 16x16 board where none threaten the other. Watch sequential and threaded solvers race across every valid configuration.",
+    link: "/games/sixteen-queens",
+    poster: "/posters/sixteen-queens.png",
   },
 ];
 
