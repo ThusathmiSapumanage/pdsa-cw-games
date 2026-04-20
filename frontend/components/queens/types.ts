@@ -7,6 +7,7 @@ export type StartRequest = {
   boardSize: number;
   queenCount: number;
   timeBudgetMs?: number;
+  skipCache?: boolean;
 };
 
 export type StartResponse = {

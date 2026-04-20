@@ -43,7 +43,7 @@ class QueensServiceTest {
     }
 
     private QueensModel.StartRequest startRequest(Integer boardSize, Integer queenCount) {
-        return new QueensModel.StartRequest(boardSize, queenCount, 1_000L);
+        return new QueensModel.StartRequest(boardSize, queenCount, 1_000L, null);
     }
 
     // ================= START ROUND =================
@@ -84,7 +84,7 @@ class QueensServiceTest {
         when(repository.findCachedCount(5, 5)).thenReturn(null);
 
         QueensModel.StartResponse response = service.startRound(
-                new QueensModel.StartRequest(5, 5, null), EMAIL);
+                new QueensModel.StartRequest(5, 5, null, null), EMAIL);
 
         assertEquals(10, response.getTotalSolutions());
         assertEquals(10, response.getSequentialFound());
@@ -99,6 +99,21 @@ class QueensServiceTest {
     }
 
     @Test
+    void startRound_noCapMode_shouldSkipCacheRead_whenSkipCacheFlagSet() {
+        stubAuthenticatedPlayer();
+        when(repository.ensureGameId(anyString())).thenReturn(10);
+        when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
+        when(repository.createGameSession(10, 1L)).thenReturn(250L);
+
+        QueensModel.StartResponse response = service.startRound(
+                new QueensModel.StartRequest(5, 5, null, true), EMAIL);
+
+        assertEquals(10, response.getTotalSolutions());
+        verify(repository, never()).findCachedCount(anyInt(), anyInt());
+        verify(repository).insertCachedCount(eq(5), eq(5), eq(10), anyDouble(), anyDouble());
+    }
+
+    @Test
     void startRound_noCapMode_shouldReadFromCache_whenPresent() {
         stubAuthenticatedPlayer();
         when(repository.ensureGameId(anyString())).thenReturn(10);
@@ -108,7 +123,7 @@ class QueensServiceTest {
                 new QueensRepository.CachedCount(14_772_512, 112_600.0, 18_800.0));
 
         QueensModel.StartResponse response = service.startRound(
-                new QueensModel.StartRequest(16, 16, null), EMAIL);
+                new QueensModel.StartRequest(16, 16, null, null), EMAIL);
 
         assertEquals(14_772_512, response.getTotalSolutions());
         assertEquals(112_600.0, response.getSequentialTimeMs(), 0.001);
@@ -309,7 +324,7 @@ class QueensServiceTest {
         when(repository.ensureGameId(anyString())).thenReturn(10);
         when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
         when(repository.createGameSession(10, 1L)).thenReturn(sessionId);
-        service.startRound(new QueensModel.StartRequest(16, queenCount, 500L), EMAIL);
+        service.startRound(new QueensModel.StartRequest(16, queenCount, 500L, null), EMAIL);
     }
 
     // 8 queens on 16x16, no-threat placement.

@@ -38,7 +38,7 @@ public class QueensService {
 		Long playerId = resolveAuthenticatedPlayerId(authenticatedEmail);
 
 		QueensModel.StartRequest payload = request == null
-				? new QueensModel.StartRequest(null, null, null)
+				? new QueensModel.StartRequest(null, null, null, null)
 				: request;
 
 		Integer boardSizeValue = payload.getBoardSize();
@@ -46,6 +46,7 @@ public class QueensService {
 		int boardSize = boardSizeValue != null ? boardSizeValue : DEFAULT_BOARD_SIZE;
 		int queenCount = queenCountValue != null ? queenCountValue : DEFAULT_QUEEN_COUNT;
 		Long timeBudgetMs = normalizeBudget(payload.getTimeBudgetMs());
+		boolean skipCache = Boolean.TRUE.equals(payload.getSkipCache());
 
 		validateBoardConfig(boardSize, queenCount);
 
@@ -57,14 +58,17 @@ public class QueensService {
 		sessionQueenCount.put(sessionId, queenCount);
 
 		return timeBudgetMs == null
-				? runFullSolve(sessionId, boardSize, queenCount, sequentialAlgoId, threadedAlgoId)
+				? runFullSolve(sessionId, boardSize, queenCount, sequentialAlgoId, threadedAlgoId, skipCache)
 				: runTimedSolve(sessionId, boardSize, queenCount, timeBudgetMs,
 						sequentialAlgoId, threadedAlgoId);
 	}
 
 	private QueensModel.StartResponse runFullSolve(Long sessionId, int boardSize, int queenCount,
-												   Integer sequentialAlgoId, Integer threadedAlgoId) {
-		QueensRepository.CachedCount cached = repository.findCachedCount(boardSize, queenCount);
+												   Integer sequentialAlgoId, Integer threadedAlgoId,
+												   boolean skipCache) {
+		QueensRepository.CachedCount cached = skipCache
+				? null
+				: repository.findCachedCount(boardSize, queenCount);
 
 		int totalSolutions;
 		double sequentialMs;

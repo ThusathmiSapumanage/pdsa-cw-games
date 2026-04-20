@@ -23,6 +23,7 @@ public class QueensModel {
 		private Integer boardSize;
 		private Integer queenCount;
 		private Long timeBudgetMs;
+		private Boolean skipCache;
 	}
 
 	@Data

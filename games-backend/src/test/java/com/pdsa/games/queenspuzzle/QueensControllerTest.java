@@ -37,7 +37,7 @@ class QueensControllerTest {
 
     @Test
     void startRound_shouldDelegateToServiceAndReturn200() {
-        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L, null);
         QueensModel.StartResponse expected = new QueensModel.StartResponse(
                 100L, 16, 8, 12000, 14800.0, 14900.0,
                 10000, 12000, true, true, 15_000L,
@@ -91,7 +91,7 @@ class QueensControllerTest {
         Authentication unauth = mock(Authentication.class);
         when(unauth.isAuthenticated()).thenReturn(false);
 
-        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L);
+        QueensModel.StartRequest request = new QueensModel.StartRequest(16, 8, 15_000L, null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> controller.startRound(request, unauth));

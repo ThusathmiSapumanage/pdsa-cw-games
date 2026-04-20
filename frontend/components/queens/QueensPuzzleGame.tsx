@@ -11,10 +11,12 @@ import { Position, StartResponse, SubmitResponse } from "./types";
 import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
 
 const BOARD_SIZE = 16;
-const MAX_BENCHMARK_POINTS = 12;
+const BENCHMARK_TIME_BUDGET_MS = 15_000;
+const FULL_SOLVE_BENCHMARK_ROUNDS = 5;
 
 type QueenCountOption = 8 | 16;
 type TimeCapOption = "none" | "15s" | "60s";
+type BenchmarkMode = "timed" | "full-solve";
 
 const TIME_CAP_MS: Record<TimeCapOption, number | null> = {
   none: null,
@@ -24,9 +26,10 @@ const TIME_CAP_MS: Record<TimeCapOption, number | null> = {
 
 type BenchmarkRow = {
   round: number;
-  sequential: number;
-  threaded: number;
-  totalSolutions: number;
+  sequentialFound: number;
+  threadedFound: number;
+  sequentialTimeMs: number;
+  threadedTimeMs: number;
 };
 
 type GamePhase =
@@ -49,6 +52,7 @@ export default function QueensPuzzleGame() {
   const [totalSolutions, setTotalSolutions] = useState(0);
   const [error, setError] = useState("");
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
+  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("timed");
   const [loadingBenchmark, setLoadingBenchmark] = useState(false);
 
   const formatMs = (value: number) => {
@@ -83,19 +87,6 @@ export default function QueensPuzzleGame() {
       setActiveQueenCount(queenCount);
       setTotalSolutions(response.totalSolutions);
       setDiscovered(0);
-      setBenchmarkData((prev) => {
-        const nextRound = prev.length + 1;
-        const next = [
-          ...prev,
-          {
-            round: nextRound,
-            sequential: response.sequentialTimeMs,
-            threaded: response.threadedTimeMs,
-            totalSolutions: response.totalSolutions,
-          },
-        ];
-        return next.slice(-MAX_BENCHMARK_POINTS);
-      });
       setPhase("ready");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start round.");
@@ -185,16 +176,17 @@ export default function QueensPuzzleGame() {
     setQueens([]);
     setPhase("starting");
     setLoadingBenchmark(true);
+    setBenchmarkData([]);
+    setBenchmarkMode("timed");
 
     try {
       const runs: BenchmarkRow[] = [];
-      const timeBudgetMs = resolveTimeBudget(queenCount, timeCap);
 
       for (let i = 1; i <= 20; i++) {
         const response = await startQueensRound({
           boardSize: BOARD_SIZE,
           queenCount,
-          ...(timeBudgetMs !== undefined ? { timeBudgetMs } : {}),
+          timeBudgetMs: BENCHMARK_TIME_BUDGET_MS,
         });
 
         setRoundData(response);
@@ -204,13 +196,14 @@ export default function QueensPuzzleGame() {
 
         runs.push({
           round: i,
-          sequential: response.sequentialTimeMs,
-          threaded: response.threadedTimeMs,
-          totalSolutions: response.totalSolutions,
+          sequentialFound: response.sequentialFound,
+          threadedFound: response.threadedFound,
+          sequentialTimeMs: response.sequentialTimeMs,
+          threadedTimeMs: response.threadedTimeMs,
         });
+        setBenchmarkData([...runs]);
       }
 
-      setBenchmarkData(runs);
       setPhase("ready");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run benchmark.");
@@ -218,7 +211,50 @@ export default function QueensPuzzleGame() {
     } finally {
       setLoadingBenchmark(false);
     }
-  }, [queenCount, timeCap, resolveTimeBudget]);
+  }, [queenCount]);
+
+  const handleRun5FullSolve = useCallback(async () => {
+    setError("");
+    setLastResult(null);
+    setQueens([]);
+    setPhase("starting");
+    setLoadingBenchmark(true);
+    setBenchmarkData([]);
+    setBenchmarkMode("full-solve");
+
+    try {
+      const runs: BenchmarkRow[] = [];
+
+      for (let i = 1; i <= FULL_SOLVE_BENCHMARK_ROUNDS; i++) {
+        const response = await startQueensRound({
+          boardSize: BOARD_SIZE,
+          queenCount: 16,
+          skipCache: true,
+        });
+
+        setRoundData(response);
+        setActiveQueenCount(16);
+        setTotalSolutions(response.totalSolutions);
+        setDiscovered(0);
+
+        runs.push({
+          round: i,
+          sequentialFound: response.sequentialFound,
+          threadedFound: response.threadedFound,
+          sequentialTimeMs: response.sequentialTimeMs,
+          threadedTimeMs: response.threadedTimeMs,
+        });
+        setBenchmarkData([...runs]);
+      }
+
+      setPhase("ready");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run benchmark.");
+      setPhase("idle");
+    } finally {
+      setLoadingBenchmark(false);
+    }
+  }, []);
 
   const isBoardDisabled = phase === "starting" || phase === "submitting";
   const canSubmit = queens.length === activeQueenCount && phase === "ready";
@@ -311,8 +347,22 @@ export default function QueensPuzzleGame() {
             disabled={loadingBenchmark}
             className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-cyan-400/60 hover:text-cyan-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            {loadingBenchmark ? "Benchmarking..." : "Run 20 Times"}
+            {loadingBenchmark
+              ? "Benchmarking..."
+              : `Run 20× (${(BENCHMARK_TIME_BUDGET_MS / 1000).toFixed(0)}s timed)`}
           </button>
+
+          {queenCount === 16 && (
+            <button
+              onClick={handleRun5FullSolve}
+              disabled={loadingBenchmark}
+              className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-emerald-400/60 hover:text-emerald-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {loadingBenchmark
+                ? "Benchmarking..."
+                : `Run ${FULL_SOLVE_BENCHMARK_ROUNDS}× (full solve, no cache)`}
+            </button>
+          )}
         </>
       )}
 
@@ -376,8 +426,22 @@ export default function QueensPuzzleGame() {
               disabled={loadingBenchmark || isBoardDisabled}
               className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-cyan-400/60 hover:text-cyan-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {loadingBenchmark ? "Benchmarking..." : "Run 20 Times"}
+              {loadingBenchmark
+              ? "Benchmarking..."
+              : `Run 20× (${(BENCHMARK_TIME_BUDGET_MS / 1000).toFixed(0)}s timed)`}
             </button>
+
+            {activeQueenCount === 16 && (
+              <button
+                onClick={handleRun5FullSolve}
+                disabled={loadingBenchmark || isBoardDisabled}
+                className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-emerald-400/60 hover:text-emerald-200 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {loadingBenchmark
+                  ? "Benchmarking..."
+                  : `Run ${FULL_SOLVE_BENCHMARK_ROUNDS}× (full solve, no cache)`}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -466,45 +530,104 @@ export default function QueensPuzzleGame() {
 
           {benchmarkData.length > 0 && (
             <div className="w-full max-w-[920px]">
+              <div
+                className={`mb-4 rounded-xl border p-3 text-[10px] font-mono uppercase tracking-[0.2em] ${
+                  benchmarkMode === "full-solve"
+                    ? "border-emerald-400/25 bg-emerald-400/5 text-emerald-200/80"
+                    : "border-cyan-400/20 bg-cyan-400/5 text-cyan-200/80"
+                }`}
+              >
+                {benchmarkMode === "full-solve"
+                  ? `Full-solve benchmark — ${FULL_SOLVE_BENCHMARK_ROUNDS} rounds of 16 queens on 16×16, cache bypassed each round. Elapsed time chart below is the headline metric.`
+                  : `Timed benchmark — each round pins both algorithms to a ${(BENCHMARK_TIME_BUDGET_MS / 1000).toFixed(0)}s budget. Solutions-found chart below is the headline metric (higher = better throughput).`}
+              </div>
+
               <PerformanceRunChart
-                title="Queens Solver Timing"
+                title="Solutions Found per Round"
                 data={benchmarkData}
                 series={[
                   {
-                    key: "sequential",
+                    key: "sequentialFound",
                     label: "Sequential",
                     colorClass: "bg-amber-500",
                     stroke: "#f59e0b",
                   },
                   {
-                    key: "threaded",
+                    key: "threadedFound",
                     label: "Threaded",
                     colorClass: "bg-cyan-400",
                     stroke: "#22d3ee",
                   },
                 ]}
-                yLabel="Time (ms)"
+                yLabel="Solutions Counted"
+                valueFormatter={(value) => Math.round(value).toLocaleString()}
+                tooltipFormatter={(label, round, value) =>
+                  `${label} - Round ${round}: ${Math.round(value).toLocaleString()} solutions`
+                }
               />
 
               <div className="mt-4">
                 <PerformanceRunChart
-                  title="Solutions Count"
+                  title="Elapsed Time per Round"
                   data={benchmarkData}
                   series={[
                     {
-                      key: "totalSolutions",
-                      label: "Solutions",
-                      colorClass: "bg-emerald-500",
-                      stroke: "#10b981",
+                      key: "sequentialTimeMs",
+                      label: "Sequential",
+                      colorClass: "bg-amber-500",
+                      stroke: "#f59e0b",
+                    },
+                    {
+                      key: "threadedTimeMs",
+                      label: "Threaded",
+                      colorClass: "bg-cyan-400",
+                      stroke: "#22d3ee",
                     },
                   ]}
-                  yLabel="Total Solutions"
-                  valueFormatter={(value) => Math.round(value).toLocaleString()}
-                  tooltipFormatter={(label, round, value) =>
-                    `${label} - Round ${round}: ${Math.round(value).toLocaleString()}`
-                  }
+                  yLabel="Time (ms)"
                 />
               </div>
+
+              {(() => {
+                const rounds = benchmarkData.length;
+                const totalSeq = benchmarkData.reduce((s, r) => s + r.sequentialFound, 0);
+                const totalThr = benchmarkData.reduce((s, r) => s + r.threadedFound, 0);
+                const avgSeq = totalSeq / rounds;
+                const avgThr = totalThr / rounds;
+                const speedup = avgSeq > 0 ? avgThr / avgSeq : 0;
+                return (
+                  <div className="mt-6 grid grid-cols-3 gap-3 rounded-2xl border border-white/10 bg-[#050505] p-5">
+                    <div>
+                      <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-amber-400/70 mb-1">
+                        Avg Seq Found / Round
+                      </div>
+                      <div className="text-lg font-black text-white tabular-nums">
+                        {Math.round(avgSeq).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-cyan-400/70 mb-1">
+                        Avg Threaded Found / Round
+                      </div>
+                      <div className="text-lg font-black text-white tabular-nums">
+                        {Math.round(avgThr).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 mb-1">
+                        Throughput Speedup
+                      </div>
+                      <div
+                        className={`text-lg font-black tabular-nums ${
+                          speedup > 1 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {speedup.toFixed(2)}×
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-6 rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
                 <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
@@ -515,24 +638,46 @@ export default function QueensPuzzleGame() {
                     <thead className="text-[10px] uppercase tracking-[0.2em] text-white/40">
                       <tr className="border-b border-white/10">
                         <th className="py-2 pr-3">Round</th>
-                        <th className="py-2 pr-3">Sequential (ms)</th>
-                        <th className="py-2">Threaded (ms)</th>
+                        <th className="py-2 pr-3">Seq Found</th>
+                        <th className="py-2 pr-3">Threaded Found</th>
+                        <th className="py-2 pr-3">Seq (ms)</th>
+                        <th className="py-2 pr-3">Threaded (ms)</th>
+                        <th className="py-2">Speedup</th>
                       </tr>
                     </thead>
                     <tbody className="font-mono">
-                      {benchmarkData.map((row) => (
-                        <tr key={row.round} className="border-b border-white/5">
-                          <td className="py-2 pr-3 text-white/60">
-                            {row.round}
-                          </td>
-                          <td className="py-2 pr-3 text-amber-300">
-                            {formatMs(row.sequential)}
-                          </td>
-                          <td className="py-2 text-cyan-300">
-                            {formatMs(row.threaded)}
-                          </td>
-                        </tr>
-                      ))}
+                      {benchmarkData.map((row) => {
+                        const ratio =
+                          row.sequentialFound > 0
+                            ? row.threadedFound / row.sequentialFound
+                            : 0;
+                        return (
+                          <tr key={row.round} className="border-b border-white/5">
+                            <td className="py-2 pr-3 text-white/60">
+                              {row.round}
+                            </td>
+                            <td className="py-2 pr-3 text-amber-300 tabular-nums">
+                              {row.sequentialFound.toLocaleString()}
+                            </td>
+                            <td className="py-2 pr-3 text-cyan-300 tabular-nums">
+                              {row.threadedFound.toLocaleString()}
+                            </td>
+                            <td className="py-2 pr-3 text-amber-300/60 tabular-nums">
+                              {formatMs(row.sequentialTimeMs)}
+                            </td>
+                            <td className="py-2 pr-3 text-cyan-300/60 tabular-nums">
+                              {formatMs(row.threadedTimeMs)}
+                            </td>
+                            <td
+                              className={`py-2 tabular-nums ${
+                                ratio > 1 ? "text-green-400" : "text-red-400"
+                              }`}
+                            >
+                              {ratio.toFixed(2)}×
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
