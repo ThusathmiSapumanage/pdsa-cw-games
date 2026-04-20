@@ -79,4 +79,37 @@ class QueensSolverTest {
             assertEquals(4, s.length);
         }
     }
+
+    // ================= TIMED =================
+
+    @Test
+    void solveSequentialTimed_shouldFindAllSolutionsForSmallBoardWithinBudget() {
+        QueensSolver.TimedResult result = solver.solveSequentialTimed(5, 5, 5_000L, 100);
+        assertEquals(10, result.totalFound);
+        assertEquals(10, result.sample.size());
+        assertTrue(!result.hitTimeLimit, "5x5 should finish well under a 5s budget");
+    }
+
+    @Test
+    void solveSequentialTimed_shouldRespectMaxStored() {
+        QueensSolver.TimedResult result = solver.solveSequentialTimed(7, 7, 5_000L, 5);
+        assertEquals(40, result.totalFound);
+        assertTrue(result.sample.size() <= 5);
+    }
+
+    @Test
+    void solveThreadedTimed_shouldMatchSequentialCountForSmallBoard() {
+        QueensSolver.TimedResult seq = solver.solveSequentialTimed(7, 7, 5_000L, 100);
+        QueensSolver.TimedResult thr = solver.solveThreadedTimed(7, 7, 5_000L, 100);
+        assertEquals(seq.totalFound, thr.totalFound);
+    }
+
+    @Test
+    void solveSequentialTimed_shouldBailWhenBudgetExceeded() {
+        // 8 queens on 16x16 has billions of solutions — guaranteed to hit a 200 ms budget.
+        QueensSolver.TimedResult result = solver.solveSequentialTimed(16, 8, 200L, 50);
+        assertTrue(result.hitTimeLimit, "expected the deadline to be reached on 8q-on-16x16 in 200 ms");
+        assertTrue(result.elapsedMs <= 1_500L,
+                "should bail close to the budget; was " + result.elapsedMs + " ms");
+    }
 }

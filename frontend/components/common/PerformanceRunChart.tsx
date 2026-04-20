@@ -15,6 +15,8 @@ type Props = {
     stroke: string;
   }[];
   yLabel?: string;
+  valueFormatter?: (value: number) => string;
+  tooltipFormatter?: (label: string, round: number, value: number) => string;
 };
 
 function getMaxValue(data: RunPoint[], keys: string[]) {
@@ -35,6 +37,8 @@ export default function PerformanceRunChart({
   data,
   series,
   yLabel = "Time (ms)",
+  valueFormatter,
+  tooltipFormatter,
 }: Props) {
   const width = 900;
   const height = 320;
@@ -48,6 +52,12 @@ export default function PerformanceRunChart({
 
   const keys = series.map((s) => s.key);
   const maxValue = getMaxValue(data, keys);
+
+  const formatValue = valueFormatter ?? ((value: number) => value.toFixed(1));
+  const formatTooltip =
+    tooltipFormatter ??
+    ((label: string, round: number, value: number) =>
+      `${label} - Round ${round}: ${value.toFixed(3)} ms`);
 
   const yTicks = 5;
   const xCount = Math.max(data.length, 1);
@@ -85,16 +95,26 @@ export default function PerformanceRunChart({
 
         <div className="flex flex-wrap items-center gap-3">
           {series.map((item) => (
-            <div key={item.key} className="flex items-center gap-2 text-[10px] text-white/70">
-              <span className={`inline-block h-2.5 w-2.5 rounded-full ${item.colorClass}`} />
-              <span className="font-mono uppercase tracking-wider">{item.label}</span>
+            <div
+              key={item.key}
+              className="flex items-center gap-2 text-[10px] text-white/70"
+            >
+              <span
+                className={`inline-block h-2.5 w-2.5 rounded-full ${item.colorClass}`}
+              />
+              <span className="font-mono uppercase tracking-wider">
+                {item.label}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[820px] w-full">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="min-w-[820px] w-full"
+        >
           <rect x="0" y="0" width={width} height={height} fill="transparent" />
 
           {Array.from({ length: yTicks + 1 }).map((_, i) => {
@@ -118,7 +138,7 @@ export default function PerformanceRunChart({
                   fontSize="10"
                   fill="rgba(255,255,255,0.45)"
                 >
-                  {value.toFixed(1)}
+                  {formatValue(value)}
                 </text>
               </g>
             );
@@ -175,7 +195,7 @@ export default function PerformanceRunChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
-            ) : null
+            ) : null,
           )}
 
           {series.map((item) =>
@@ -188,10 +208,10 @@ export default function PerformanceRunChart({
               return (
                 <g key={`${item.key}-${row.round}`}>
                   <circle cx={x} cy={y} r="3.5" fill={item.stroke} />
-                  <title>{`${item.label} - Round ${row.round}: ${value.toFixed(3)} ms`}</title>
+                  <title>{formatTooltip(item.label, row.round, value)}</title>
                 </g>
               );
-            })
+            }),
           )}
 
           <text

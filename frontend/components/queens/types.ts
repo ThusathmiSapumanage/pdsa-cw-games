@@ -6,6 +6,8 @@ export type Position = {
 export type StartRequest = {
   boardSize: number;
   queenCount: number;
+  timeBudgetMs?: number;
+  skipCache?: boolean;
 };
 
 export type StartResponse = {
@@ -15,7 +17,28 @@ export type StartResponse = {
   totalSolutions: number;
   sequentialTimeMs: number;
   threadedTimeMs: number;
+  sequentialFound: number;
+  threadedFound: number;
+  sequentialHitLimit: boolean;
+  threadedHitLimit: boolean;
+  timeBudgetMs: number | null;
   message: string;
+  status: "READY" | "RUNNING";
+};
+
+export type ProgressResponse = {
+  sessionId: number;
+  boardSize: number;
+  queenCount: number;
+  sequentialFound: number;
+  threadedFound: number;
+  sequentialTimeMs: number;
+  threadedTimeMs: number;
+  sequentialDone: boolean;
+  threadedDone: boolean;
+  status: "RUNNING" | "COMPLETED" | "CANCELLED" | "FAILED";
+  totalSolutions: number | null;
+  message: string | null;
 };
 
 export type SubmitRequest = {
