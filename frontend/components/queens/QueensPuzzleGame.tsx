@@ -13,7 +13,14 @@ import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
 const BOARD_SIZE = 16;
 const MAX_BENCHMARK_POINTS = 12;
 
-type QueenCountOption = 8;
+type QueenCountOption = 8 | 16;
+type TimeCapOption = "none" | "15s" | "60s";
+
+const TIME_CAP_MS: Record<TimeCapOption, number | null> = {
+  none: null,
+  "15s": 15_000,
+  "60s": 60_000,
+};
 
 type BenchmarkRow = {
   round: number;
@@ -32,7 +39,8 @@ type GamePhase =
 
 export default function QueensPuzzleGame() {
   const [phase, setPhase] = useState<GamePhase>("idle");
-  const queenCount: QueenCountOption = 8;
+  const [queenCount, setQueenCount] = useState<QueenCountOption>(8);
+  const [timeCap, setTimeCap] = useState<TimeCapOption>("15s");
   const [activeQueenCount, setActiveQueenCount] = useState<QueenCountOption>(8);
   const [roundData, setRoundData] = useState<StartResponse | null>(null);
   const [queens, setQueens] = useState<Position[]>([]);
@@ -48,6 +56,16 @@ export default function QueensPuzzleGame() {
     return value.toFixed(3);
   };
 
+  const resolveTimeBudget = useCallback(
+    (qc: QueenCountOption, cap: TimeCapOption): number | undefined => {
+      // 16 queens always runs full (cached after first run).
+      if (qc === 16) return undefined;
+      const ms = TIME_CAP_MS[cap];
+      return ms === null ? undefined : ms;
+    },
+    [],
+  );
+
   const handleStartRound = useCallback(async () => {
     setError("");
     setLastResult(null);
@@ -55,9 +73,11 @@ export default function QueensPuzzleGame() {
     setPhase("starting");
 
     try {
+      const timeBudgetMs = resolveTimeBudget(queenCount, timeCap);
       const response = await startQueensRound({
         boardSize: BOARD_SIZE,
         queenCount,
+        ...(timeBudgetMs !== undefined ? { timeBudgetMs } : {}),
       });
       setRoundData(response);
       setActiveQueenCount(queenCount);
@@ -81,7 +101,7 @@ export default function QueensPuzzleGame() {
       setError(err instanceof Error ? err.message : "Failed to start round.");
       setPhase("idle");
     }
-  }, [queenCount]);
+  }, [queenCount, timeCap, resolveTimeBudget]);
 
   const handleCellClick = useCallback(
     (x: number, y: number) => {
@@ -104,7 +124,7 @@ export default function QueensPuzzleGame() {
         setPhase("ready");
       }
     },
-    [phase],
+    [phase, activeQueenCount],
   );
 
   const handleClearBoard = useCallback(() => {
@@ -146,7 +166,7 @@ export default function QueensPuzzleGame() {
       setError(err instanceof Error ? err.message : "Failed to submit answer.");
       setPhase("ready");
     }
-  }, [roundData, queens]);
+  }, [roundData, queens, activeQueenCount]);
 
   const handleNewRound = useCallback(() => {
     setRoundData(null);
@@ -168,11 +188,13 @@ export default function QueensPuzzleGame() {
 
     try {
       const runs: BenchmarkRow[] = [];
+      const timeBudgetMs = resolveTimeBudget(queenCount, timeCap);
 
       for (let i = 1; i <= 20; i++) {
         const response = await startQueensRound({
           boardSize: BOARD_SIZE,
           queenCount,
+          ...(timeBudgetMs !== undefined ? { timeBudgetMs } : {}),
         });
 
         setRoundData(response);
@@ -196,10 +218,46 @@ export default function QueensPuzzleGame() {
     } finally {
       setLoadingBenchmark(false);
     }
-  }, [queenCount]);
+  }, [queenCount, timeCap, resolveTimeBudget]);
 
   const isBoardDisabled = phase === "starting" || phase === "submitting";
   const canSubmit = queens.length === activeQueenCount && phase === "ready";
+
+  const queenCountButton = (value: QueenCountOption, label: string) => (
+    <button
+      onClick={() => setQueenCount(value)}
+      className={`flex-1 py-3 rounded font-bold uppercase tracking-widest text-xs transition-colors border ${
+        queenCount === value
+          ? "bg-blue-600 text-white border-blue-500"
+          : "bg-transparent text-white/60 border-white/10 hover:border-blue-400/60 hover:text-white"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  const timeCapButton = (value: TimeCapOption, label: string, hint: string) => (
+    <button
+      onClick={() => setTimeCap(value)}
+      className={`flex flex-col items-center gap-0.5 py-2.5 px-2 rounded font-mono uppercase tracking-[0.15em] text-[10px] transition-colors border ${
+        timeCap === value
+          ? "bg-cyan-500/15 text-cyan-200 border-cyan-400/60"
+          : "bg-transparent text-white/50 border-white/10 hover:border-white/30 hover:text-white/80"
+      }`}
+    >
+      <span className="font-bold">{label}</span>
+      <span className="text-[8px] opacity-70">{hint}</span>
+    </button>
+  );
+
+  const currentBudgetLabel =
+    queenCount === 16
+      ? "Full search (cached after first run)"
+      : timeCap === "none"
+        ? "Full search — no time cap (first run may be slow, then cached)"
+        : timeCap === "15s"
+          ? "Time-bounded — each algorithm runs for ~15 seconds"
+          : "Time-bounded — each algorithm runs for ~60 seconds";
 
   const controls = (
     <div className="flex flex-col gap-6">
@@ -209,17 +267,36 @@ export default function QueensPuzzleGame() {
             <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-3 block">
               Queens to place
             </label>
-            <div className="py-3 rounded font-bold uppercase tracking-widest text-xs bg-blue-600 text-white border border-blue-500 text-center">
-              8 Queens
+            <div className="flex gap-2">
+              {queenCountButton(8, "8 Queens")}
+              {queenCountButton(16, "16 Queens")}
             </div>
             <p className="mt-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/30">
-              Spec default: 8 queens on 16×16.
+              {queenCount === 16
+                ? "Full spec: 16 non-attacking queens on 16×16."
+                : "8 non-attacking queens on 16×16 (vastly more solutions)."}
             </p>
           </div>
 
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 leading-relaxed">
-            Time-bounded search — sequential and threaded each run for ~15 s.
-            For 8 queens on 16×16 (intractable, sampled).
+          {queenCount === 8 && (
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-3 block">
+                Time cap
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {timeCapButton("15s", "15 sec", "Quick")}
+                {timeCapButton("60s", "< 1 min", "Thorough")}
+                {timeCapButton("none", "No cap", "Full + cache")}
+              </div>
+              <p className="mt-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/30">
+                8-queens on 16×16 is intractable. Time cap samples solutions;
+                &quot;No cap&quot; runs the full bitmask count (slow first time, instant after).
+              </p>
+            </div>
+          )}
+
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 leading-relaxed">
+            {currentBudgetLabel}
           </div>
 
           <button
@@ -248,7 +325,7 @@ export default function QueensPuzzleGame() {
           <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/30 leading-relaxed max-w-[240px] mx-auto">
             Searching {queenCount}-queen placements on {BOARD_SIZE}×{BOARD_SIZE}.
             <br />
-            Time-bounded — ~15 s per algorithm.
+            {currentBudgetLabel}
           </div>
         </div>
       )}
@@ -323,7 +400,7 @@ export default function QueensPuzzleGame() {
           <p className="text-sm leading-relaxed mb-6">
             Click{" "}
             <span className="text-blue-400 font-bold">Deploy Queens</span> to
-            begin. The solver will calculate all valid {activeQueenCount}-queen
+            begin. The solver will calculate all valid {queenCount}-queen
             placements on a {BOARD_SIZE}×{BOARD_SIZE} board.
           </p>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-black/50 rounded-full border border-white/10 text-[10px] font-mono">

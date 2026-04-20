@@ -49,11 +49,12 @@ class QueensServiceTest {
     // ================= START ROUND =================
 
     @Test
-    void startRound_shouldCreateRoundSuccessfully() {
+    void startRound_timedMode_shouldCreateRoundSuccessfully() {
         stubAuthenticatedPlayer();
         when(repository.ensureGameId(anyString())).thenReturn(10);
         when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
         when(repository.createGameSession(10, 1L)).thenReturn(100L);
+        when(repository.findCachedCount(4, 4)).thenReturn(null);
 
         QueensModel.StartResponse response = service.startRound(startRequest(4, 4), EMAIL);
 
@@ -70,7 +71,50 @@ class QueensServiceTest {
 
         verify(repository).saveSixteenQueensGame(100L, 2);
         verify(repository, times(2)).saveAlgorithmExecution(eq(100L), anyInt(), anyDouble(), anyString());
-        verify(repository).saveSolutions(eq(100L), any());
+        verify(repository, never()).saveSolutions(anyLong(), any());
+        verify(repository, never()).insertCachedCount(anyInt(), anyInt(), anyInt(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void startRound_noCapMode_shouldComputeAndCacheResult() {
+        stubAuthenticatedPlayer();
+        when(repository.ensureGameId(anyString())).thenReturn(10);
+        when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
+        when(repository.createGameSession(10, 1L)).thenReturn(200L);
+        when(repository.findCachedCount(5, 5)).thenReturn(null);
+
+        QueensModel.StartResponse response = service.startRound(
+                new QueensModel.StartRequest(5, 5, null), EMAIL);
+
+        assertEquals(10, response.getTotalSolutions());
+        assertEquals(10, response.getSequentialFound());
+        assertEquals(10, response.getThreadedFound());
+        assertFalse(response.getSequentialHitLimit());
+        assertFalse(response.getThreadedHitLimit());
+        assertEquals(null, response.getTimeBudgetMs());
+
+        verify(repository).saveSixteenQueensGame(200L, 10);
+        verify(repository).insertCachedCount(eq(5), eq(5), eq(10), anyDouble(), anyDouble());
+        verify(repository, never()).saveSolutions(anyLong(), any());
+    }
+
+    @Test
+    void startRound_noCapMode_shouldReadFromCache_whenPresent() {
+        stubAuthenticatedPlayer();
+        when(repository.ensureGameId(anyString())).thenReturn(10);
+        when(repository.ensureAlgorithmId(eq(10), anyString())).thenReturn(20, 21);
+        when(repository.createGameSession(10, 1L)).thenReturn(300L);
+        when(repository.findCachedCount(16, 16)).thenReturn(
+                new QueensRepository.CachedCount(14_772_512, 112_600.0, 18_800.0));
+
+        QueensModel.StartResponse response = service.startRound(
+                new QueensModel.StartRequest(16, 16, null), EMAIL);
+
+        assertEquals(14_772_512, response.getTotalSolutions());
+        assertEquals(112_600.0, response.getSequentialTimeMs(), 0.001);
+        assertEquals(18_800.0, response.getThreadedTimeMs(), 0.001);
+        verify(repository, never()).insertCachedCount(anyInt(), anyInt(), anyInt(), anyDouble(), anyDouble());
+        verify(repository).saveSixteenQueensGame(300L, 14_772_512);
     }
 
     @Test

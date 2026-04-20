@@ -325,6 +325,41 @@ public class QueensRepository {
 		);
 	}
 
+	public CachedCount findCachedCount(int boardSize, int queenCount) {
+		try {
+			return jdbcTemplate.queryForObject(
+					"SELECT Total_Solutions, Sequential_Time_Ms, Threaded_Time_Ms " +
+							"FROM Queens_Solution_Count WHERE Board_Size = ? AND Queen_Count = ?",
+					(rs, rowNum) -> new CachedCount(
+							rs.getInt("Total_Solutions"),
+							rs.getDouble("Sequential_Time_Ms"),
+							rs.getDouble("Threaded_Time_Ms")
+					),
+					boardSize,
+					queenCount
+			);
+		} catch (EmptyResultDataAccessException ex) {
+			return null;
+		}
+	}
+
+	public void insertCachedCount(int boardSize, int queenCount, int totalSolutions,
+								   double sequentialMs, double threadedMs) {
+		jdbcTemplate.update(
+				"INSERT INTO Queens_Solution_Count " +
+						"(Board_Size, Queen_Count, Total_Solutions, Sequential_Time_Ms, Threaded_Time_Ms) " +
+						"VALUES (?, ?, ?, ?, ?) " +
+						"ON DUPLICATE KEY UPDATE " +
+						"Total_Solutions = VALUES(Total_Solutions), " +
+						"Sequential_Time_Ms = VALUES(Sequential_Time_Ms), " +
+						"Threaded_Time_Ms = VALUES(Threaded_Time_Ms)",
+				boardSize, queenCount, totalSolutions, sequentialMs, threadedMs
+		);
+	}
+
+	public record CachedCount(int totalSolutions, double sequentialMs, double threadedMs) {
+	}
+
 	private record QueenLocationRow(int solutionId, int x, int y) {
 	}
 }

@@ -8,7 +8,7 @@ type PerformanceStatsProps = {
   threadedFound?: number;
   sequentialHitLimit?: boolean;
   threadedHitLimit?: boolean;
-  timeBudgetMs?: number;
+  timeBudgetMs?: number | null;
 };
 
 function formatDuration(ms: number): string {

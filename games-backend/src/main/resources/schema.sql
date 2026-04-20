@@ -95,6 +95,19 @@ CREATE TABLE IF NOT EXISTS Sixteen_Queens_Game (
     FOREIGN KEY (Session_Id) REFERENCES Game_Session(Session_Id) ON DELETE CASCADE
 );
 
+-- Cached N-queens solution counts + benchmark timings, keyed by (board_size, queen_count).
+-- Populated on first no-time-cap run; every subsequent run reads instantly from here.
+CREATE TABLE IF NOT EXISTS Queens_Solution_Count (
+    Board_Size TINYINT UNSIGNED NOT NULL,
+    Queen_Count TINYINT UNSIGNED NOT NULL,
+    Total_Solutions INT UNSIGNED NOT NULL,
+    Sequential_Time_Ms DECIMAL(10,3) UNSIGNED NOT NULL,
+    Threaded_Time_Ms DECIMAL(10,3) UNSIGNED NOT NULL,
+    Created_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (Board_Size, Queen_Count),
+    CONSTRAINT chk_qsc_queens CHECK (Queen_Count >= 1 AND Queen_Count <= Board_Size)
+);
+
 -- Stores all snakes/ladders configured for a session.
 CREATE TABLE IF NOT EXISTS Snake_And_Ladder_Item (
     Session_Id INT UNSIGNED NOT NULL,

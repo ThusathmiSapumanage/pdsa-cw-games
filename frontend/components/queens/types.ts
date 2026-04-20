@@ -20,7 +20,7 @@ export type StartResponse = {
   threadedFound: number;
   sequentialHitLimit: boolean;
   threadedHitLimit: boolean;
-  timeBudgetMs: number;
+  timeBudgetMs: number | null;
   message: string;
 };
 
