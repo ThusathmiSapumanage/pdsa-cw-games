@@ -8,7 +8,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 class QueensSolver {
 
@@ -71,6 +73,97 @@ class QueensSolver {
             throw new IllegalStateException("Threaded solver failed", ex.getCause());
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    // ---------------- Count with live progress + cancel support ----------------
+
+    /**
+     * Bitmask sequential count that periodically flushes progress to a shared {@link LongAdder}
+     * so external threads (e.g. a polling endpoint) can observe intermediate counts.
+     * Honors the {@code cancelled} flag — returns partial count on cancellation.
+     */
+    long solveSequentialCountWithProgress(int boardSize, int queenCount,
+                                          LongAdder published, AtomicBoolean cancelled) {
+        validate(boardSize, queenCount);
+        int boardMask = boardMask(boardSize);
+        long[] local = {0L};
+        long[] lastPublished = {0L};
+        progressBacktrack(0, 0, boardSize, queenCount, 0, 0, 0, boardMask,
+                local, lastPublished, published, cancelled);
+        published.add(local[0] - lastPublished[0]);
+        lastPublished[0] = local[0];
+        return local[0];
+    }
+
+    /**
+     * Bitmask threaded count with live progress. Seeds the tree at a fixed depth, fans out to
+     * the shared thread pool, and each worker periodically flushes to the shared adder.
+     */
+    long solveThreadedCountWithProgress(int boardSize, int queenCount,
+                                        LongAdder published, AtomicBoolean cancelled) {
+        validate(boardSize, queenCount);
+        int boardMask = boardMask(boardSize);
+        List<Seed> seeds = buildSeeds(boardSize, queenCount, SEED_DEPTH);
+
+        ExecutorService executor = Executors.newFixedThreadPool(
+                Math.max(2, Runtime.getRuntime().availableProcessors())
+        );
+        try {
+            List<Future<Long>> futures = new ArrayList<>();
+            for (Seed seed : seeds) {
+                futures.add(executor.submit((Callable<Long>) () -> {
+                    long[] local = {0L};
+                    long[] lastPublished = {0L};
+                    progressBacktrack(seed.row, seed.placed, boardSize, queenCount,
+                            seed.cols, seed.ld, seed.rd, boardMask,
+                            local, lastPublished, published, cancelled);
+                    published.add(local[0] - lastPublished[0]);
+                    return local[0];
+                }));
+            }
+            long total = 0;
+            for (Future<Long> f : futures) total += f.get();
+            return total;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Threaded solver interrupted", ex);
+        } catch (ExecutionException ex) {
+            throw new IllegalStateException("Threaded solver failed", ex.getCause());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private void progressBacktrack(int row, int placed, int n, int qc,
+                                   int cols, int ld, int rd, int boardMask,
+                                   long[] local, long[] lastPublished,
+                                   LongAdder published, AtomicBoolean cancelled) {
+        if (cancelled.get()) return;
+        if (placed == qc) {
+            local[0]++;
+            long delta = local[0] - lastPublished[0];
+            if (delta >= 65_536L) {
+                published.add(delta);
+                lastPublished[0] = local[0];
+            }
+            return;
+        }
+        if (row == n) return;
+        if (n - row < qc - placed) return;
+
+        int available = boardMask & ~(cols | ld | rd);
+        while (available != 0) {
+            int bit = available & -available;
+            available ^= bit;
+            progressBacktrack(row + 1, placed + 1, n, qc,
+                    cols | bit, (ld | bit) << 1, (rd | bit) >>> 1, boardMask,
+                    local, lastPublished, published, cancelled);
+            if (cancelled.get()) return;
+        }
+        if (n - (row + 1) >= qc - placed) {
+            progressBacktrack(row + 1, placed, n, qc,
+                    cols, ld << 1, rd >>> 1, boardMask, local, lastPublished, published, cancelled);
         }
     }
 

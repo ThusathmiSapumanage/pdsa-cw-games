@@ -41,7 +41,8 @@ class QueensControllerTest {
         QueensModel.StartResponse expected = new QueensModel.StartResponse(
                 100L, 16, 8, 12000, 14800.0, 14900.0,
                 10000, 12000, true, true, 15_000L,
-                "Sequential found 10000; Threaded found 12000 in 15000 ms each (time-bounded).");
+                "Sequential found 10000; Threaded found 12000 in 15000 ms each (time-bounded).",
+                "READY");
 
         when(service.startRound(eq(request), eq(EMAIL))).thenReturn(expected);
 

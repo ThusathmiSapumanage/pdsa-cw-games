@@ -1,14 +1,24 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import GameLayoutShell from "../layouts/GameLayoutShell";
 import AuthGate from "../auth/AuthGate";
 import QueensBoard from "./QueensBoard";
 import PerformanceStats from "./PerformanceStats";
 import PerformanceRunChart from "../common/PerformanceRunChart";
 import SolutionProgress from "./SolutionProgress";
-import { Position, StartResponse, SubmitResponse } from "./types";
-import { startQueensRound, submitQueensAnswer } from "../../src/lib/QueensApi";
+import {
+  Position,
+  ProgressResponse,
+  StartResponse,
+  SubmitResponse,
+} from "./types";
+import {
+  cancelQueensRun,
+  getQueensProgress,
+  startQueensRound,
+  submitQueensAnswer,
+} from "../../src/lib/QueensApi";
 
 const BOARD_SIZE = 16;
 const BENCHMARK_TIME_BUDGET_MS = 15_000;
@@ -35,10 +45,13 @@ type BenchmarkRow = {
 type GamePhase =
   | "idle"
   | "starting"
+  | "running"
   | "ready"
   | "submitting"
   | "result"
   | "complete";
+
+const PROGRESS_POLL_INTERVAL_MS = 400;
 
 export default function QueensPuzzleGame() {
   const [phase, setPhase] = useState<GamePhase>("idle");
@@ -54,11 +67,93 @@ export default function QueensPuzzleGame() {
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkRow[]>([]);
   const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("timed");
   const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+  const [progress, setProgress] = useState<ProgressResponse | null>(null);
+  const [pollTick, setPollTick] = useState(0);
+  const [cancelling, setCancelling] = useState(false);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollSessionIdRef = useRef<number | null>(null);
 
   const formatMs = (value: number) => {
     if (!Number.isFinite(value)) return "0.000";
     return value.toFixed(3);
   };
+
+  const stopPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+    pollSessionIdRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  const applyFinalProgress = useCallback((snap: ProgressResponse) => {
+    const total = snap.totalSolutions ?? snap.sequentialFound;
+    setTotalSolutions(total);
+    setRoundData((prev) =>
+      prev
+        ? {
+            ...prev,
+            totalSolutions: total,
+            sequentialFound: snap.sequentialFound,
+            threadedFound: snap.threadedFound,
+            sequentialTimeMs: snap.sequentialTimeMs,
+            threadedTimeMs: snap.threadedTimeMs,
+            status: "READY",
+          }
+        : prev,
+    );
+  }, []);
+
+  const startPolling = useCallback(
+    (sessionId: number) => {
+      stopPolling();
+      pollSessionIdRef.current = sessionId;
+      pollingTimerRef.current = setInterval(async () => {
+        if (pollSessionIdRef.current !== sessionId) return;
+        try {
+          const snap = await getQueensProgress(sessionId);
+          console.log("[queens poll]", sessionId, snap);
+          setPollTick((t) => t + 1);
+          setProgress(snap);
+          if (snap.status !== "RUNNING") {
+            stopPolling();
+            applyFinalProgress(snap);
+            if (snap.status === "COMPLETED") {
+              setPhase("ready");
+            } else if (snap.status === "CANCELLED") {
+              setError("Run cancelled — partial counts shown.");
+              setPhase("ready");
+            } else {
+              setError(snap.message || "Solver failed.");
+              setPhase("idle");
+            }
+          }
+        } catch (err) {
+          stopPolling();
+          setError(err instanceof Error ? err.message : "Progress poll failed.");
+          setPhase("idle");
+        }
+      }, PROGRESS_POLL_INTERVAL_MS);
+    },
+    [applyFinalProgress, stopPolling],
+  );
+
+  const handleCancel = useCallback(async () => {
+    const sessionId = pollSessionIdRef.current ?? roundData?.sessionId;
+    if (!sessionId) return;
+    setCancelling(true);
+    try {
+      await cancelQueensRun(sessionId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cancel failed.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [roundData]);
 
   const resolveTimeBudget = useCallback(
     (qc: QueenCountOption, cap: TimeCapOption): number | undefined => {
@@ -74,6 +169,7 @@ export default function QueensPuzzleGame() {
     setError("");
     setLastResult(null);
     setQueens([]);
+    setProgress(null);
     setPhase("starting");
 
     try {
@@ -87,16 +183,36 @@ export default function QueensPuzzleGame() {
       setActiveQueenCount(queenCount);
       setTotalSolutions(response.totalSolutions);
       setDiscovered(0);
-      setPhase("ready");
+
+      if (response.status === "RUNNING") {
+        setProgress({
+          sessionId: response.sessionId,
+          boardSize: response.boardSize,
+          queenCount: response.queenCount,
+          sequentialFound: 0,
+          threadedFound: 0,
+          sequentialTimeMs: 0,
+          threadedTimeMs: 0,
+          sequentialDone: false,
+          threadedDone: false,
+          status: "RUNNING",
+          totalSolutions: null,
+          message: response.message,
+        });
+        setPhase("running");
+        startPolling(response.sessionId);
+      } else {
+        setPhase("ready");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start round.");
       setPhase("idle");
     }
-  }, [queenCount, timeCap, resolveTimeBudget]);
+  }, [queenCount, timeCap, resolveTimeBudget, startPolling]);
 
   const handleCellClick = useCallback(
     (x: number, y: number) => {
-      if (phase !== "ready" && phase !== "result") return;
+      if (phase !== "ready" && phase !== "result" && phase !== "running") return;
 
       setLastResult(null);
 
@@ -160,15 +276,17 @@ export default function QueensPuzzleGame() {
   }, [roundData, queens, activeQueenCount]);
 
   const handleNewRound = useCallback(() => {
+    stopPolling();
     setRoundData(null);
     setQueens([]);
     setLastResult(null);
     setDiscovered(0);
     setTotalSolutions(0);
     setBenchmarkData([]);
+    setProgress(null);
     setPhase("idle");
     setError("");
-  }, []);
+  }, [stopPolling]);
 
   const handleRun20Times = useCallback(async () => {
     setError("");
@@ -257,7 +375,9 @@ export default function QueensPuzzleGame() {
   }, []);
 
   const isBoardDisabled = phase === "starting" || phase === "submitting";
-  const canSubmit = queens.length === activeQueenCount && phase === "ready";
+  const canSubmit =
+    queens.length === activeQueenCount &&
+    (phase === "ready" || phase === "running");
 
   const queenCountButton = (value: QueenCountOption, label: string) => (
     <button
@@ -380,7 +500,88 @@ export default function QueensPuzzleGame() {
         </div>
       )}
 
-      {roundData && phase !== "idle" && phase !== "starting" && (
+      {phase === "running" && progress && (
+        <div className="flex flex-col gap-5 rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-cyan-200">
+              Async Solve Running
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono text-cyan-300/60">polls: {pollTick}</span>
+              <div className="inline-block w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-amber-300/80">
+                Sequential
+              </span>
+              <span className="text-[10px] font-mono text-white/60 tabular-nums">
+                {(progress.sequentialTimeMs / 1000).toFixed(1)}s
+                {progress.sequentialDone && " ✓"}
+              </span>
+            </div>
+            <div className="text-lg font-black text-amber-200 tabular-nums">
+              {progress.sequentialFound.toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-cyan-300/80">
+                Threaded
+              </span>
+              <span className="text-[10px] font-mono text-white/60 tabular-nums">
+                {(progress.threadedTimeMs / 1000).toFixed(1)}s
+                {progress.threadedDone && " ✓"}
+              </span>
+            </div>
+            <div className="text-lg font-black text-cyan-200 tabular-nums">
+              {progress.threadedFound.toLocaleString()}
+            </div>
+          </div>
+          {progress.sequentialFound > 0 && (
+            <div className="pt-2 border-t border-white/10">
+              <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 mb-1">
+                Threaded / Sequential
+              </div>
+              <div className="text-sm font-black text-green-400 tabular-nums">
+                {(progress.threadedFound / progress.sequentialFound).toFixed(2)}×
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="bg-transparent border border-red-500/40 text-red-300 py-2 rounded font-bold uppercase tracking-widest hover:bg-red-500/10 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {cancelling ? "Cancelling..." : "Cancel Solve"}
+          </button>
+          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 leading-relaxed">
+            Place queens on the board and submit while the solver runs — submissions are validated independently.
+          </p>
+        </div>
+      )}
+
+      {phase === "running" && (
+        <div className="flex flex-col gap-2 pt-2">
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="bg-white text-black py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors text-xs disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-black"
+          >
+            Submit Solution
+          </button>
+          <button
+            onClick={handleClearBoard}
+            disabled={queens.length === 0}
+            className="bg-transparent border border-white/10 text-white/70 py-2.5 rounded font-bold uppercase tracking-widest hover:border-red-500/50 hover:text-red-400 transition-colors text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Clear Board
+          </button>
+        </div>
+      )}
+
+      {roundData && phase !== "idle" && phase !== "starting" && phase !== "running" && (
         <>
           <PerformanceStats
             sequentialTimeMs={roundData.sequentialTimeMs}

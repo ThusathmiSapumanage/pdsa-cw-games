@@ -34,7 +34,7 @@ class QueensServiceTest {
     @BeforeEach
     void setUp() {
         repository = mock(QueensRepository.class);
-        service = new QueensService(repository);
+        service = new QueensService(repository, new QueensJobRegistry());
     }
 
     private void stubAuthenticatedPlayer() {

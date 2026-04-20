@@ -279,6 +279,13 @@ public class QueensRepository {
 		);
 	}
 
+	public void updateTotalSolutions(Long sessionId, int totalSolutions) {
+		jdbcTemplate.update(
+				"UPDATE Sixteen_Queens_Game SET Total_Solutions = ? WHERE Session_Id = ?",
+				totalSolutions, sessionId
+		);
+	}
+
 	public Integer getTotalSolutions(Long sessionId) {
 		return jdbcTemplate.queryForObject(
 				"SELECT Total_Solutions FROM Sixteen_Queens_Game WHERE Session_Id = ?",

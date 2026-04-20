@@ -1,5 +1,6 @@
 import {
   ApiError,
+  ProgressResponse,
   StartRequest,
   StartResponse,
   StatusResponse,
@@ -78,4 +79,31 @@ export async function getQueensStatus(
   );
 
   return handleResponse<StatusResponse>(response);
+}
+
+export async function getQueensProgress(
+  sessionId: number,
+): Promise<ProgressResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/sixteen-queens/${sessionId}/progress`,
+    {
+      method: "GET",
+      headers: authHeaders(),
+    },
+  );
+
+  return handleResponse<ProgressResponse>(response);
+}
+
+export async function cancelQueensRun(sessionId: number): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/sixteen-queens/${sessionId}/cancel`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+    },
+  );
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Cancel failed (${response.status})`);
+  }
 }

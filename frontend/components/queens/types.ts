@@ -23,6 +23,22 @@ export type StartResponse = {
   threadedHitLimit: boolean;
   timeBudgetMs: number | null;
   message: string;
+  status: "READY" | "RUNNING";
+};
+
+export type ProgressResponse = {
+  sessionId: number;
+  boardSize: number;
+  queenCount: number;
+  sequentialFound: number;
+  threadedFound: number;
+  sequentialTimeMs: number;
+  threadedTimeMs: number;
+  sequentialDone: boolean;
+  threadedDone: boolean;
+  status: "RUNNING" | "COMPLETED" | "CANCELLED" | "FAILED";
+  totalSolutions: number | null;
+  message: string | null;
 };
 
 export type SubmitRequest = {

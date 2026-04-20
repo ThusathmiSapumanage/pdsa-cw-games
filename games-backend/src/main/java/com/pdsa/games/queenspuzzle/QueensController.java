@@ -96,6 +96,38 @@ public class QueensController {
 	return ResponseEntity.ok(service.getStatus(sessionId, getAuthenticatedEmail(authentication)));
     }
 
+    @GetMapping("/{sessionId}/progress")
+    @Operation(
+	    summary = "Poll an async Sixteen Queens job",
+	    description = "For 8-queens no-cap runs only. Returns live sequential and threaded solution counts while the solver is executing."
+    )
+    @ApiResponses({
+	    @ApiResponse(
+		    responseCode = "200",
+		    description = "Progress snapshot returned",
+		    content = @Content(mediaType = "application/json", schema = @Schema(implementation = QueensModel.ProgressResponse.class))
+	    ),
+	    @ApiResponse(responseCode = "401", description = "User is not authenticated"),
+	    @ApiResponse(responseCode = "404", description = "No async job tracked for this session")
+    })
+    public ResponseEntity<QueensModel.ProgressResponse> getProgress(
+	    @PathVariable Long sessionId,
+	    Authentication authentication) {
+	return ResponseEntity.ok(service.getProgress(sessionId, getAuthenticatedEmail(authentication)));
+    }
+
+    @PostMapping("/{sessionId}/cancel")
+    @Operation(
+	    summary = "Cancel an async Sixteen Queens job",
+	    description = "Signals the async solvers to stop. Returns 200 if a job was cancelled or already done, 404 otherwise."
+    )
+    public ResponseEntity<Void> cancel(
+	    @PathVariable Long sessionId,
+	    Authentication authentication) {
+	boolean cancelled = service.cancelJob(sessionId, getAuthenticatedEmail(authentication));
+	return cancelled ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
     private String getAuthenticatedEmail(Authentication authentication) {
 	if (authentication == null
 		|| !authentication.isAuthenticated()

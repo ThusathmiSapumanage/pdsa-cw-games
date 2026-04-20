@@ -42,6 +42,26 @@ public class QueensModel {
 		private Boolean threadedHitLimit;
 		private Long timeBudgetMs;
 		private String message;
+		/** "READY" (synchronous result) or "RUNNING" (async — poll /progress for live updates). */
+		private String status;
+	}
+
+	@Data
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public static class ProgressResponse {
+		private Long sessionId;
+		private Integer boardSize;
+		private Integer queenCount;
+		private Long sequentialFound;
+		private Long threadedFound;
+		private Long sequentialTimeMs;
+		private Long threadedTimeMs;
+		private Boolean sequentialDone;
+		private Boolean threadedDone;
+		private String status;
+		private Long totalSolutions;
+		private String message;
 	}
 
 	@Data
