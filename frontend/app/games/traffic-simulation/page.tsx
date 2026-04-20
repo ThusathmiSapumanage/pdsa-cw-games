@@ -584,7 +584,7 @@ export default function TrafficSimulationPage() {
   return (
     <AuthGate>
       <GameLayoutShell
-        gameId="03"
+        gameId="02"
         title="TRAFFIC SIMULATION"
         description="Maximum vehicle throughput analysis across a directed network with animated flow routes and bottleneck detection."
         controls={controls}
