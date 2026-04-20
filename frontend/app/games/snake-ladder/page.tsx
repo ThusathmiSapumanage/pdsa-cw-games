@@ -219,7 +219,7 @@ export default function SnakeLadderPage() {
   return (
     <AuthGate>
       <GameLayoutShell
-        gameId="02"
+        gameId="03"
         title="Snake and Ladder"
         description="Calculation of minimum dice throws required to navigate a dynamic board. Analyzes pathfinding efficiency."
 

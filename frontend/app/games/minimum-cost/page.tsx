@@ -612,10 +612,6 @@ export default function MinimumCostPage() {
                 </div>
               </div>
 
-              <div className="border-t border-white/5 pt-8">
-                <MinCostAnalytics history={history} />
-              </div>
-
               {benchmarkData.length > 0 && (
                 <div className="rounded-2xl border border-white/10 bg-[#050505] p-5 shadow-2xl">
                   <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400">
