@@ -50,7 +50,7 @@ class SnakeLadderTest {
         AlgorithmResult result = bfsService.solve(TOTAL_CELLS_6x6, NO_PORTALS);
 
         assertTrue(result.isSuccess(), "BFS should find a path");
-        assertEquals("BFS", result.getAlgorithmName());
+        assertEquals("Snake and Ladder - BFS", result.getAlgorithmName());
         assertEquals(6, result.getMinimumThrows(),
                 "On a 36-cell board with no portals, minimum throws should be exactly 6");
     }
@@ -88,7 +88,7 @@ class SnakeLadderTest {
     @Test
     void bfs_algorithmNameIsBFS() {
         AlgorithmResult result = bfsService.solve(TOTAL_CELLS_6x6, NO_PORTALS);
-        assertEquals("BFS", result.getAlgorithmName());
+        assertEquals("Snake and Ladder - BFS", result.getAlgorithmName());
     }
 
     // =========================================================================
@@ -100,7 +100,7 @@ class SnakeLadderTest {
         AlgorithmResult result = dpService.solve(TOTAL_CELLS_6x6, NO_PORTALS);
 
         assertTrue(result.isSuccess(), "DP should find a path");
-        assertEquals("Dynamic Programming", result.getAlgorithmName());
+        assertEquals("Snake and Ladder - Dynamic Programming", result.getAlgorithmName());
         assertEquals(6, result.getMinimumThrows(),
                 "On a 36-cell board with no portals, minimum throws should be exactly 6");
     }
@@ -138,7 +138,7 @@ class SnakeLadderTest {
     @Test
     void dp_algorithmNameIsDynamicProgramming() {
         AlgorithmResult result = dpService.solve(TOTAL_CELLS_6x6, NO_PORTALS);
-        assertEquals("Dynamic Programming", result.getAlgorithmName());
+        assertEquals("Snake and Ladder - Dynamic Programming", result.getAlgorithmName());
     }
 
     // =========================================================================
@@ -295,8 +295,8 @@ class SnakeLadderTest {
         List<AlgorithmResult> results = snakeLadderService.runAlgorithms(items, 36);
 
         assertEquals(2, results.size(), "Should return exactly 2 algorithm results");
-        assertEquals("BFS", results.get(0).getAlgorithmName());
-        assertEquals("Dynamic Programming", results.get(1).getAlgorithmName());
+        assertEquals("Snake and Ladder - BFS", results.get(0).getAlgorithmName());
+        assertEquals("Snake and Ladder - Dynamic Programming", results.get(1).getAlgorithmName());
     }
 
     // =========================================================================

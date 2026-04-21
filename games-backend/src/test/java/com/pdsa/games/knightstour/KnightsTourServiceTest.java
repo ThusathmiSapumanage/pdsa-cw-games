@@ -28,8 +28,8 @@ class KnightsTourServiceTest {
     void startRound_shouldCreateRoundSuccessfully() {
         when(repository.findPlayerIdByEmail(EMAIL)).thenReturn(1L);
         when(repository.playerExists(1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
         when(repository.createGameSession(1L)).thenReturn(100L);
 
         KnightsTourModel.StartRequest request = new KnightsTourModel.StartRequest();
@@ -87,8 +87,8 @@ class KnightsTourServiceTest {
         when(repository.playerExists(1L)).thenReturn(true);
         when(repository.sessionExists(100L)).thenReturn(true);
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
 
         KnightsTourModel.GameConfig config = new KnightsTourModel.GameConfig();
         config.setSessionId(100L);
@@ -128,8 +128,8 @@ class KnightsTourServiceTest {
         when(repository.playerExists(1L)).thenReturn(true);
         when(repository.sessionExists(100L)).thenReturn(true);
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
 
         KnightsTourModel.GameConfig config = new KnightsTourModel.GameConfig();
         config.setSessionId(100L);
@@ -176,8 +176,8 @@ class KnightsTourServiceTest {
         when(repository.playerExists(1L)).thenReturn(true);
         when(repository.sessionExists(100L)).thenReturn(true);
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
 
         KnightsTourModel.GameConfig config = new KnightsTourModel.GameConfig();
         config.setSessionId(100L);
@@ -259,8 +259,8 @@ class KnightsTourServiceTest {
         when(repository.playerExists(1L)).thenReturn(true);
         when(repository.sessionExists(100L)).thenReturn(true);
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
 
         KnightsTourModel.GameConfig config = new KnightsTourModel.GameConfig();
         config.setSessionId(100L);
@@ -292,8 +292,8 @@ class KnightsTourServiceTest {
         when(repository.playerExists(1L)).thenReturn(true);
         when(repository.sessionExists(100L)).thenReturn(true);
         when(repository.sessionBelongsToPlayer(100L, 1L)).thenReturn(true);
-        when(repository.findAlgorithmId("Warnsdorff")).thenReturn(1);
-        when(repository.findAlgorithmId("Backtracking")).thenReturn(2);
+        when(repository.findAlgorithmId("Knight Tour - Warnsdorff")).thenReturn(1);
+        when(repository.findAlgorithmId("Knight Tour - Backtracking")).thenReturn(2);
 
         List<KnightsTourModel.Move> warnsdorffMoves = Arrays.asList(
                 new KnightsTourModel.Move(1, 1, 1),

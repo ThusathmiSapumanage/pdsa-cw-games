@@ -82,6 +82,6 @@ public class DPSnakeLadderService {
         int answer = dp[totalCells - 1];
         boolean found = (answer != Integer.MAX_VALUE);
 
-        return new AlgorithmResult("Dynamic Programming", found ? answer : -1, ms, found);
+        return new AlgorithmResult("Snake and Ladder - Dynamic Programming", found ? answer : -1, ms, found);
     }
 }

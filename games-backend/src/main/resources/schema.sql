@@ -1,8 +1,8 @@
 -- Create the database if it doesn't exist
 -- Note: Each user should run this locally
 
-CREATE DATABASE IF NOT EXISTS algocore_db;
-USE algocore_db;
+CREATE DATABASE IF NOT EXISTS algocore_dbV2;
+USE algocore_dbV2;
 
 -- Stores all players who run game sessions.
 CREATE TABLE IF NOT EXISTS Player (

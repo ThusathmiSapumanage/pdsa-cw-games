@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AlgorithmResult {
 
-    private String algorithmName; // e.g. "BFS" or "Dynamic Programming"
+    private String algorithmName; // e.g. "Snake and Ladder - BFS" or "Snake and Ladder - Dynamic Programming"
     private int minimumThrows; // answer produced by this algorithm
     private double executionTimeMs; // how long the algorithm took (milliseconds)
     private boolean success; // did it find an answer?

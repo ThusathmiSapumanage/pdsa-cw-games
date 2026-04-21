@@ -68,7 +68,7 @@ public class BFSSnakeLadderService {
                 if (next == totalCells) {
                     long endTime = System.nanoTime();
                     double ms = (endTime - startTime) / 1_000_000.0;
-                    return new AlgorithmResult("BFS", numThrows + 1, ms, true);
+                    return new AlgorithmResult("Snake and Ladder - BFS", numThrows + 1, ms, true);
                 }
 
                 // Add unvisited cell to the queue
@@ -82,6 +82,6 @@ public class BFSSnakeLadderService {
         // No path found (shouldn't happen on a valid board)
         long endTime = System.nanoTime();
         double ms = (endTime - startTime) / 1_000_000.0;
-        return new AlgorithmResult("BFS", -1, ms, false);
+        return new AlgorithmResult("Snake and Ladder - BFS", -1, ms, false);
     }
 }

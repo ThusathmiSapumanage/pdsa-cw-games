@@ -23,7 +23,7 @@ public class AlgorithmModel {
     private Integer algorithmId;
 
     @Column(name = "Algorithm_Name", nullable = false, length = 45, unique = true)
-    @Schema(description = "Name of the algorithm", minLength = 1, maxLength = 45, example = "Backtracking")
+    @Schema(description = "Name of the algorithm", minLength = 1, maxLength = 45, example = "Knight Tour - Warnsdorff")
     private String algorithmName;
 
     @Column(name = "Game_Id", nullable = false)

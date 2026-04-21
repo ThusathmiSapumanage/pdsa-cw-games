@@ -18,8 +18,8 @@ public class KnightsTourService {
     private static final int[] DX = {2, 1, -1, -2, -2, -1, 1, 2};
     private static final int[] DY = {1, 2, 2, 1, -1, -2, -2, -1};
 
-    private static final String WARNSDORFF_NAME = "Warnsdorff";
-    private static final String BACKTRACKING_NAME = "Backtracking";
+    private static final String WARNSDORFF_NAME = "Knight Tour - Warnsdorff";
+    private static final String BACKTRACKING_NAME = "Knight Tour - Backtracking";
 
     private static final int MAX_ATTEMPTS_TO_GENERATE = 40;
     private static final long BACKTRACKING_TIMEOUT_MS_8 = 2000L;

@@ -21,9 +21,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class QueensService {
 
 	private static final Logger log = LoggerFactory.getLogger(QueensService.class);
+	private static final int BOARD_SIZE_8 = 8;
+	private static final int BOARD_SIZE_16 = 16;
 	private static final int DEFAULT_BOARD_SIZE = 16;
 	private static final int DEFAULT_QUEEN_COUNT = 8;
-	private static final int MAX_BOARD_SIZE = 16;
 
 	private static final long MIN_TIME_BUDGET_MS = 500L;
 	private static final long MAX_TIME_BUDGET_MS = 60_000L;
@@ -513,8 +514,8 @@ public class QueensService {
 	}
 
 	private void validateBoardConfig(int boardSize, int queenCount) {
-		if (boardSize < 4 || boardSize > MAX_BOARD_SIZE) {
-			throw new IllegalArgumentException("Board size must be between 4 and " + MAX_BOARD_SIZE + ".");
+		if (boardSize != BOARD_SIZE_8 && boardSize != BOARD_SIZE_16) {
+			throw new IllegalArgumentException("Board size must be either " + BOARD_SIZE_8 + " or " + BOARD_SIZE_16 + ".");
 		}
 		if (queenCount < 1 || queenCount > boardSize) {
 			throw new IllegalArgumentException("Queen count must be between 1 and the board size.");
