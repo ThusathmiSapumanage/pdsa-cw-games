@@ -1,11 +1,9 @@
 package com.pdsa.games.snakeladder.service;
 
 import com.pdsa.games.snakeladder.model.AlgorithmResult;
-import com.pdsa.games.snakeladder.model.SnakeLadderItem;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
@@ -68,7 +66,7 @@ public class BFSSnakeLadderService {
                 if (next == totalCells) {
                     long endTime = System.nanoTime();
                     double ms = (endTime - startTime) / 1_000_000.0;
-                    return new AlgorithmResult("BFS", numThrows + 1, ms, true);
+                    return new AlgorithmResult("Snake and Ladder - BFS", numThrows + 1, ms, true);
                 }
 
                 // Add unvisited cell to the queue
@@ -82,6 +80,6 @@ public class BFSSnakeLadderService {
         // No path found (shouldn't happen on a valid board)
         long endTime = System.nanoTime();
         double ms = (endTime - startTime) / 1_000_000.0;
-        return new AlgorithmResult("BFS", -1, ms, false);
+        return new AlgorithmResult("Snake and Ladder - BFS", -1, ms, false);
     }
 }

@@ -5,8 +5,9 @@ import AuthGate from "../../../components/auth/AuthGate";
 import { useAuth } from "../../../components/auth/AuthProvider";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 import PerformanceRunChart from "../../../components/common/PerformanceRunChart";
+import { getBackendOrigin } from "../../../services/api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9090";
+const API_BASE_URL = getBackendOrigin();
 const GAME_NAME = "Traffic Simulation";
 
 const NODE_POSITIONS: Record<string, { x: number; y: number; kind?: string }> = {

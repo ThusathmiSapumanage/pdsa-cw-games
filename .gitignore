@@ -31,6 +31,12 @@ Desktop.ini
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+hs_err_pid*.log
+replay_*.log
+
+# Scripts
+*.bat
+*.sh
 
 # Coursework PDF (private)
 *.pdf
