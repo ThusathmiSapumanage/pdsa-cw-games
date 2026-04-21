@@ -8,9 +8,9 @@ import {
   SubmitRequest,
   SubmitResponse,
 } from "../../components/knightstour/types";
+import { getBackendOrigin } from "../../services/api";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
+const API_BASE_URL = getBackendOrigin();
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;

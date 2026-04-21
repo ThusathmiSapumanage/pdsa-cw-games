@@ -99,7 +99,11 @@ function MinimumCostGame() {
 
     showToast("Calculating optimal assignments...", "process");
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (!API_BASE) {
+      showToast("NEXT_PUBLIC_API_BASE_URL not set in environment", "error");
+      return;
+    }
     fetch(`${API_BASE}/api/mincost/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

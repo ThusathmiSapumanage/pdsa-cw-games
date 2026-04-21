@@ -4,8 +4,7 @@ import React, { useEffect, useState } from "react";
 import "./Traffic.css";
 
 const SESSION_ID = 1;
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 const NODE_POSITIONS = {
   A: { x: 70, y: 220, kind: "source" },

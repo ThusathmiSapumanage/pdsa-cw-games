@@ -7,9 +7,9 @@ import {
   SubmitRequest,
   SubmitResponse,
 } from "../../components/queens/types";
+import { getBackendOrigin } from "../../services/api";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = getBackendOrigin();
 
 function authHeaders(): HeadersInit {
   const headers: HeadersInit = { "Content-Type": "application/json" };
