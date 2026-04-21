@@ -78,18 +78,20 @@ public class HungarianAssignmentService {
         Arrays.fill(match, -1);
 
         // Keep searching for a perfect matching (N assignments)
-        while (countAssignments(costMatrix, n, match) < n) {
+        while (true) {
+            int matchingSize = countAssignments(costMatrix, n, match);
+            if (matchingSize == n) break;
+
             Arrays.fill(rowsCovered, 0);
             Arrays.fill(colsCovered, 0);
             
-            // Mark rows and cols with minimal lines to cover all zeros
-            coverZeros(costMatrix, n, rowsCovered, colsCovered);
-
-            // If we hit a dead end or enough lines, we stop
-            if (isOptimized(rowsCovered, colsCovered, n)) break;
+            // Mark rows and cols with minimal lines to cover all zeros using matching
+            coverZeros(costMatrix, n, rowsCovered, colsCovered, match);
 
             // Find the smallest uncovered value (Delta) to "uncover" new zeros
             double delta = findDelta(costMatrix, n, rowsCovered, colsCovered);
+            if (delta <= 0) break; // Safety break for precision/stale state
+            
             applyDelta(costMatrix, n, rowsCovered, colsCovered, delta);
 
             steps.add(new MinCostModel.HungarianStep("DELTA_ADJUST", convertToInt(costMatrix, n),
@@ -156,15 +158,46 @@ public class HungarianAssignmentService {
         return false;
     }
 
-    private void coverZeros(double[][] matrix, int n, int[] rows, int[] cols) {
-        // Greedy zero covering for simpler demonstration in viva
+    private void coverZeros(double[][] matrix, int n, int[] rows, int[] cols, int[] match) {
+        // Implementation of Konig's Theorem: Min Cover = (Unmarked rows) + (Marked columns)
+        boolean[] markedRows = new boolean[n];
+        boolean[] markedCols = new boolean[n];
+        
+        int[] rowToCol = new int[n];
+        Arrays.fill(rowToCol, -1);
+        for (int v = 0; v < n; v++) {
+            if (match[v] != -1) rowToCol[match[v]] = v;
+        }
+        
+        List<Integer> queue = new ArrayList<>();
+        // Start by marking all unmatched rows
         for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                if (matrix[i][j] == 0 && rows[i] == 0 && cols[j] == 0) {
-                    cols[j] = 1;
+            if (rowToCol[i] == -1) {
+                markedRows[i] = true;
+                queue.add(i);
+            }
+        }
+        
+        int head = 0;
+        while (head < queue.size()) {
+            int u = queue.get(head++);
+            for (int v = 0; v < n; v++) {
+                // If a zero is in a marked row and column is not marked
+                if (matrix[u][v] == 0 && !markedCols[v]) {
+                    markedCols[v] = true;
+                    // Mark the row matched with this column
+                    int matchedRow = match[v];
+                    if (matchedRow != -1 && !markedRows[matchedRow]) {
+                        markedRows[matchedRow] = true;
+                        queue.add(matchedRow);
+                    }
                 }
             }
         }
+        
+        // Lines = (Unmarked rows) + (Marked columns)
+        for (int i = 0; i < n; i++) if (!markedRows[i]) rows[i] = 1;
+        for (int j = 0; j < n; j++) if (markedCols[j]) cols[j] = 1;
     }
 
     private boolean isOptimized(int[] rows, int[] cols, int n) {
