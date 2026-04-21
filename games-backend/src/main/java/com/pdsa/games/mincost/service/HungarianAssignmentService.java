@@ -200,13 +200,6 @@ public class HungarianAssignmentService {
         for (int j = 0; j < n; j++) if (markedCols[j]) cols[j] = 1;
     }
 
-    private boolean isOptimized(int[] rows, int[] cols, int n) {
-        int totalLines = 0;
-        for (int r : rows) if (r == 1) totalLines++;
-        for (int c : cols) if (c == 1) totalLines++;
-        return totalLines >= n;
-    }
-
     private double findDelta(double[][] matrix, int n, int[] rows, int[] cols) {
         double delta = Double.MAX_VALUE;
         for (int i = 0; i < n; i++) {
