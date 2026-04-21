@@ -6,7 +6,7 @@ import { useAuth } from "../../../components/auth/AuthProvider";
 import GameLayoutShell from "../../../components/layouts/GameLayoutShell";
 import PerformanceRunChart from "../../../components/common/PerformanceRunChart";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9090";
 const GAME_NAME = "Traffic Simulation";
 
 const NODE_POSITIONS: Record<string, { x: number; y: number; kind?: string }> = {
@@ -595,3 +595,4 @@ export default function TrafficSimulationPage() {
     </AuthGate>
   );
 }
+

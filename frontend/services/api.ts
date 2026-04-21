@@ -6,7 +6,7 @@
  */
 function getBackendOrigin(): string {
   const raw =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "http://localhost:8080";
+    process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "http://localhost:9090";
 
   let base = raw.replace(/\/+$/, "");
 

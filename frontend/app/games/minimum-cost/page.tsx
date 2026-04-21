@@ -263,7 +263,7 @@ export default function MinimumCostPage() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/mincost/history");
+      const response = await fetch("http://localhost:9090/api/mincost/history");
       if (!response.ok) return;
       const data = await response.json();
       setHistory(data);
@@ -292,7 +292,7 @@ export default function MinimumCostPage() {
     const validated = validateInputs();
     if (!validated) return null;
 
-    const response = await fetch("http://localhost:8080/api/mincost/start", {
+    const response = await fetch("http://localhost:9090/api/mincost/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

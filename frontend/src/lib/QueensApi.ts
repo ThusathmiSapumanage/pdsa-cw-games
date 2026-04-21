@@ -9,7 +9,7 @@ import {
 } from "../../components/queens/types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9090";
 
 function authHeaders(): HeadersInit {
   const headers: HeadersInit = { "Content-Type": "application/json" };

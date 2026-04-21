@@ -16,9 +16,9 @@ import { parseApiError } from "../../../services/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-// These hit your Spring Boot backend at localhost:8080
+// These hit your Spring Boot backend at localhost:9090
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9090";
 const BOARD_SIZE_OPTIONS = [6, 7, 8, 9, 10, 11, 12];
 const BOARD_SIZE_DROPDOWN_OPTIONS = BOARD_SIZE_OPTIONS.map((n) => ({
   value: String(n),
@@ -455,4 +455,5 @@ function IdleResults() {
     </div>
   );
 }
+
 
