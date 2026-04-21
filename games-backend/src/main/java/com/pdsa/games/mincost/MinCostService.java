@@ -39,13 +39,13 @@ public class MinCostService {
         int minCost = (request.getMinCost() != null) ? request.getMinCost() : 20;
         int maxCost = (request.getMaxCost() != null) ? request.getMaxCost() : 200;
 
-        if (n < 5 || n > 100) { // Relaxed N for testing if needed, though 50-100 is standard
+        if (n < 50 || n > 100) {
             throw new IllegalArgumentException("Matrix size N must be between 50 and 100.");
         }
 
-        if (minCost < 20 || maxCost > 500 || minCost >= maxCost) {
+        if (minCost < 20 || maxCost > 200 || minCost >= maxCost) {
             throw new IllegalArgumentException(
-                    "Cost range must be valid, and Min Cost must be less than Max Cost."
+                    "Cost range must be between 20 and 200, and Min Cost must be less than Max Cost."
             );
         }
 
