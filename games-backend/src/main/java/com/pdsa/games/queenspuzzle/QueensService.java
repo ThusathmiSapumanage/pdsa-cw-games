@@ -395,8 +395,12 @@ public class QueensService {
 		Integer storedQueenCount = sessionQueenCount.get(request.getSessionId());
 		int expectedQueenCount = storedQueenCount != null ? storedQueenCount : DEFAULT_QUEEN_COUNT;
 
+		// Get session's actual board size from job registry, fallback to DEFAULT_BOARD_SIZE if not found
+		QueensJobRegistry.Snapshot snap = jobRegistry.snapshot(request.getSessionId());
+		int sessionBoardSize = (snap != null) ? snap.boardSize : DEFAULT_BOARD_SIZE;
+
 		try {
-			validatePositions(positions, DEFAULT_BOARD_SIZE, expectedQueenCount);
+			validatePositions(positions, sessionBoardSize, expectedQueenCount);
 		} catch (IllegalArgumentException ex) {
 			String responseSummary = buildResponseSummary(playerId, "INCORRECT");
 			repository.saveResponse(request.getSessionId(), responseSummary, false);
