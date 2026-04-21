@@ -3,6 +3,8 @@ package com.pdsa.games.mincost;
 import java.util.List;
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,7 @@ import com.pdsa.games.mincost.service.HungarianAssignmentService;
 @Service
 public class MinCostService {
 
+    private static final Logger logger = LoggerFactory.getLogger(MinCostService.class);
     private final GreedyAssignmentService greedyService;
     private final HungarianAssignmentService hungarianService;
     private final MinCostRepository repository;
@@ -100,7 +103,7 @@ public class MinCostService {
             repository.saveExecution(sessionId, greedyId, greedyTimeMs);
             repository.saveExecution(sessionId, hungarianId, hungarianTimeMs);
         } catch (Exception e) {
-            System.err.println("DB Warning: Could not save game stats! " + e.getMessage());
+            logger.warn("DB Persistence Warning: Could not save game stats! {}", e.getMessage());
         }
     }
 
