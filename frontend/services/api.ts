@@ -3,10 +3,15 @@
 /**
  * Spring Boot backend base URL (no trailing slash, no trailing /api).
  * Registration: POST {origin}/api/players
+ * 
+ * NOTE: Requires NEXT_PUBLIC_API_BASE_URL to be set in environment variables.
  */
-function getBackendOrigin(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "http://localhost:9090";
+export function getBackendOrigin(): string {
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  
+  if (!raw) {
+    throw new Error("NEXT_PUBLIC_API_BASE_URL environment variable is not set. Create a .env.local file with NEXT_PUBLIC_API_BASE_URL=http://localhost:8080");
+  }
 
   let base = raw.replace(/\/+$/, "");
 
@@ -16,6 +21,14 @@ function getBackendOrigin(): string {
   }
 
   return base;
+}
+
+/**
+ * Returns the full API base URL (origin + /api).
+ * Use this for building API endpoints.
+ */
+export function getApiBaseUrl(): string {
+  return `${getBackendOrigin()}/api`;
 }
 
 const PLAYERS_URL = `${getBackendOrigin()}/api/players`;

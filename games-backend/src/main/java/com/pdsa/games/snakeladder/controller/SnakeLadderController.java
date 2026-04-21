@@ -17,8 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -107,9 +105,6 @@ public class SnakeLadderController {
 
             // Remove it so it can't be reused
             sessionAnswers.remove(sessionId);
-
-            // Verify the answer
-            boolean isCorrect = service.checkAndSaveAnswer(sessionId, playerAnswer, correctAnswer);
 
             String outcomeStr = service.determineOutcome(playerAnswer, correctAnswer);
             GameOutcome outcome = GameOutcome.valueOf(outcomeStr);

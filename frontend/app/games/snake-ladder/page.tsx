@@ -12,13 +12,11 @@ import ResultsPanel from "../../../components/snake-ladder/ResultsPanel";
 import AnswerChallenge from "../../../components/snake-ladder/AnswerChallenge";
 import PerformanceRunChart from "../../../components/snake-ladder/PerformanceRunChart";
 import type { GameState } from "../../../components/snake-ladder/types";
-import { parseApiError } from "../../../services/api";
+import { parseApiError, getBackendOrigin } from "../../../services/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-// These hit your Spring Boot backend at localhost:9090
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9090";
+const BACKEND_URL = getBackendOrigin();
 const BOARD_SIZE_OPTIONS = [6, 7, 8, 9, 10, 11, 12];
 const BOARD_SIZE_DROPDOWN_OPTIONS = BOARD_SIZE_OPTIONS.map((n) => ({
   value: String(n),
@@ -97,9 +95,9 @@ async function cleanupBenchmarkSession(data: StartRoundData, token: string) {
   await submitAnswer(data.sessionId, correctAnswer, token);
 }
 
-function getAlgorithmTime(data: StartRoundData, algorithmName: string) {
+function getAlgorithmTime(data: StartRoundData, algorithmNameSubstring: string) {
   const result = data.algorithmResults.find(
-    (item) => item.algorithmName.toLowerCase() === algorithmName.toLowerCase()
+    (item) => item.algorithmName.toLowerCase().includes(algorithmNameSubstring.toLowerCase())
   );
 
   return Number(result?.executionTimeMs ?? 0);

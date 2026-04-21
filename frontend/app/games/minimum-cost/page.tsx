@@ -9,6 +9,7 @@ import MinCostAnalytics from "../../../components/mincost/MinCostAnalytics";
 import PlaybackToolbar from "../../../components/mincost/PlaybackToolbar";
 import AlgoDropdown from "../../../components/forms/AlgoDropdown";
 import PerformanceRunChart from "../../../components/common/PerformanceRunChart";
+import { getApiBaseUrl } from "../../../services/api";
 
 type Assignment = {
   row: number;
@@ -263,7 +264,7 @@ export default function MinimumCostPage() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch("http://localhost:9090/api/mincost/history");
+      const response = await fetch(`${getApiBaseUrl()}/mincost/history`);
       if (!response.ok) return;
       const data = await response.json();
       setHistory(data);
@@ -292,7 +293,7 @@ export default function MinimumCostPage() {
     const validated = validateInputs();
     if (!validated) return null;
 
-    const response = await fetch("http://localhost:9090/api/mincost/start", {
+    const response = await fetch(`${getApiBaseUrl()}/mincost/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

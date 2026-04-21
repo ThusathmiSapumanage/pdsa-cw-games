@@ -288,7 +288,6 @@ public class KnightsTourService {
         List<KnightsTourModel.Move> backtrackingMoves = repository.findCorrectMoves(sessionId, backtrackingId);
 
         List<KnightsTourModel.Move> selected = !warnsdorffMoves.isEmpty() ? warnsdorffMoves : backtrackingMoves;
-        String algorithmName = !warnsdorffMoves.isEmpty() ? WARNSDORFF_NAME : BACKTRACKING_NAME;
 
         if (selected.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Correct Knight Tour path not found for this session.");
