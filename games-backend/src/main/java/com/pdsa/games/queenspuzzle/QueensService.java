@@ -41,8 +41,8 @@ public class QueensService {
 			runnable -> {
 				Thread t = new Thread(runnable, "queens-async-solve-" + System.nanoTime());
 				t.setDaemon(true);
-				t.setUncaughtExceptionHandler((thread, ex) ->
-						log.error("Uncaught exception in async solve thread {}", thread.getName(), ex));
+				t.setUncaughtExceptionHandler(
+						(thread, ex) -> log.error("Uncaught exception in async solve thread {}", thread.getName(), ex));
 				return t;
 			});
 
@@ -101,8 +101,8 @@ public class QueensService {
 	}
 
 	private QueensModel.StartResponse respondFromCache(Long sessionId, int boardSize, int queenCount,
-													   QueensRepository.CachedCount cached,
-													   Integer sequentialAlgoId, Integer threadedAlgoId) {
+			QueensRepository.CachedCount cached,
+			Integer sequentialAlgoId, Integer threadedAlgoId) {
 		int totalSolutions = cached.totalSolutions();
 		double sequentialMs = cached.sequentialMs();
 		double threadedMs = cached.threadedMs();
@@ -130,9 +130,11 @@ public class QueensService {
 	}
 
 	private QueensModel.StartResponse startAsyncFullSolve(Long sessionId, int boardSize, int queenCount,
-														  Integer sequentialAlgoId, Integer threadedAlgoId) {
-		// Placeholder row so that submit/status calls have a Sixteen_Queens_Game row to query.
-		// Use Integer.MAX_VALUE as a "pending" sentinel so the all-found reset never fires during the solve.
+			Integer sequentialAlgoId, Integer threadedAlgoId) {
+		// Placeholder row so that submit/status calls have a Sixteen_Queens_Game row to
+		// query.
+		// Use Integer.MAX_VALUE as a "pending" sentinel so the all-found reset never
+		// fires during the solve.
 		repository.saveSixteenQueensGame(sessionId, Integer.MAX_VALUE);
 
 		QueensJobRegistry.JobState job = jobRegistry.register(sessionId, boardSize, queenCount);
@@ -204,13 +206,18 @@ public class QueensService {
 	}
 
 	/**
-	 * When both algorithms have finished, persist the shared final total and cache it.
-	 * Uses the threaded count (canonical) if both completed without cancel; else skip caching.
+	 * When both algorithms have finished, persist the shared final total and cache
+	 * it.
+	 * Uses the threaded count (canonical) if both completed without cancel; else
+	 * skip caching.
 	 */
 	private void tryFinishJob(QueensJobRegistry.JobState job, long myCount) {
-		if (!(job.sequentialDone.get() && job.threadedDone.get())) return;
-		if (job.status != QueensJobRegistry.Status.RUNNING) return; // already finalised (cancelled/failed)
-		if (job.cancelled.get()) return;
+		if (!(job.sequentialDone.get() && job.threadedDone.get()))
+			return;
+		if (job.status != QueensJobRegistry.Status.RUNNING)
+			return; // already finalised (cancelled/failed)
+		if (job.cancelled.get())
+			return;
 
 		long seqTotal = job.sequentialFound.sum();
 		long thrTotal = job.threadedFound.sum();
@@ -275,8 +282,8 @@ public class QueensService {
 	}
 
 	private QueensModel.StartResponse runFullSolve(Long sessionId, int boardSize, int queenCount,
-												   Integer sequentialAlgoId, Integer threadedAlgoId,
-												   boolean skipCache) {
+			Integer sequentialAlgoId, Integer threadedAlgoId,
+			boolean skipCache) {
 		QueensRepository.CachedCount cached = skipCache
 				? null
 				: repository.findCachedCount(boardSize, queenCount);
@@ -333,8 +340,8 @@ public class QueensService {
 	}
 
 	private QueensModel.StartResponse runTimedSolve(Long sessionId, int boardSize, int queenCount,
-													long timeBudgetMs,
-													Integer sequentialAlgoId, Integer threadedAlgoId) {
+			long timeBudgetMs,
+			Integer sequentialAlgoId, Integer threadedAlgoId) {
 		QueensSolver.TimedResult sequentialResult = solver.solveSequentialTimed(
 				boardSize, queenCount, timeBudgetMs, QueensSolver.DEFAULT_MAX_STORED);
 		QueensSolver.TimedResult threadedResult = solver.solveThreadedTimed(
@@ -412,8 +419,7 @@ public class QueensService {
 					false,
 					discovered,
 					totalSolutions,
-					"Incorrect solution: " + ex.getMessage()
-			);
+					"Incorrect solution: " + ex.getMessage());
 		}
 
 		Integer existingSolutionId = repository.findMatchingSolutionId(request.getSessionId(), positions);
@@ -430,8 +436,7 @@ public class QueensService {
 						true,
 						discovered,
 						totalSolutions,
-						"This solution was already discovered. Try a different one."
-				);
+						"This solution was already discovered. Try a different one.");
 			}
 			repository.markSolutionDiscovered(request.getSessionId(), existingSolutionId);
 			updatedDiscovered = repository.getDiscoveredCount(request.getSessionId());
@@ -459,8 +464,7 @@ public class QueensService {
 				false,
 				updatedDiscovered,
 				totalSolutions,
-				message
-		);
+				message);
 	}
 
 	@Transactional(readOnly = true)
@@ -569,8 +573,8 @@ public class QueensService {
 	}
 
 	private String buildTimedMessage(QueensSolver.TimedResult sequential,
-									 QueensSolver.TimedResult threaded,
-									 long timeBudgetMs) {
+			QueensSolver.TimedResult threaded,
+			long timeBudgetMs) {
 		String suffix = (sequential.hitTimeLimit || threaded.hitTimeLimit)
 				? " (time-bounded — search hit the budget; partial counts shown)"
 				: " (full search completed within budget)";
