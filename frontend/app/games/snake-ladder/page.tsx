@@ -231,6 +231,7 @@ export default function SnakeLadderPage() {
               value={String(boardSize)}
               onChange={(value) => setBoardSize(Number(value))}
               options={BOARD_SIZE_DROPDOWN_OPTIONS}
+              disabled={loading || benchmarking}
             />
 
             {/* Algorithm selector */}
@@ -242,6 +243,7 @@ export default function SnakeLadderPage() {
                 { value: "bfs", label: "Breadth-First Search (BFS)" },
                 { value: "dp",  label: "Dynamic Programming (DP)" },
               ]}
+              disabled={loading || benchmarking}
             />
 
             {/* Start button */}
@@ -303,7 +305,7 @@ export default function SnakeLadderPage() {
         visualization={
           <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
             <SnakeLadderBoard
-              n={boardSize}
+              n={gameState?.n ?? boardSize}
               items={gameState?.items ?? []}
               loading={loading || benchmarking}
               outcome={outcome}
