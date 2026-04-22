@@ -14,6 +14,7 @@ interface AlgoDropdownProps {
   value: string;
   onChange: (_v: string) => void; // eslint-disable-line no-unused-vars
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export default function AlgoDropdown({
@@ -22,11 +23,17 @@ export default function AlgoDropdown({
   value,
   onChange,
   placeholder = "Select an option",
+  disabled = false,
 }: AlgoDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  // Close the menu if the dropdown becomes disabled while open (e.g. benchmark starts).
+  useEffect(() => {
+    if (disabled && isOpen) setIsOpen(false);
+  }, [disabled, isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,10 +55,11 @@ export default function AlgoDropdown({
       <div className="relative">
         {/* Trigger Button */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
           className={`w-full flex items-center justify-between py-4 bg-transparent border-b transition-all duration-500 text-left ${
             isOpen ? "border-blue-600" : "border-white/10"
-          }`}
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           <span className={`text-sm md:text-base font-medium tracking-wide ${value ? "text-white" : "text-white/20"}`}>
             {selectedOption ? selectedOption.label : placeholder}
