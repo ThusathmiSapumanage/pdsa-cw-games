@@ -39,11 +39,13 @@ import com.pdsa.games.traffic.repository.TrafficSimGameRepository;
 @Service
 public class TrafficService {
 
+    // Fixed source and sink used by the traffic max-flow game.
     private static final String SOURCE = "A";
     private static final String SINK = "T";
     private static final String DINIC_NAME = "Traffic - Dinic";
     private static final String FORD_FULKERSON_NAME = "Traffic - Ford-Fulkerson";
 
+    // Template network. A generated game assigns a random capacity to each directed road.
     private static final String[][] EDGES = {
             {"A", "B"}, {"A", "C"}, {"A", "D"},
             {"B", "E"}, {"B", "F"},
@@ -84,11 +86,13 @@ public class TrafficService {
     public List<Road> generateTrafficNetwork(Integer sessionId) {
         validateSession(sessionId);
 
+        // Use the session id as the seed so regenerating the same session is repeatable.
         Random random = new Random(sessionId.longValue());
 
         TrafficSimGame trafficGame = trafficSimGameRepository.findById(sessionId)
                 .orElseGet(() -> trafficSimGameRepository.save(new TrafficSimGame(sessionId, 0)));
 
+        // Replace any previous network for this session before saving the new one.
         List<Road> existing = roadRepository.findByIdSessionId(sessionId);
         if (!existing.isEmpty()) {
             roadRepository.deleteAll(existing);
@@ -102,6 +106,7 @@ public class TrafficService {
 
         List<Road> saved = roadRepository.saveAll(roads);
 
+        // Store the correct answer server-side so player submissions can be validated later.
         int maxFlow = runDinic(buildCapacityGraphFromRoads(saved));
         trafficGame.setMaxFlowValue(maxFlow);
         trafficSimGameRepository.save(trafficGame);
@@ -111,6 +116,7 @@ public class TrafficService {
 
     @Transactional
     public AlgorithmRunResult calculateDinicMaxFlow(Integer sessionId) {
+        // Clone the residual graph because the algorithm mutates capacities while it runs.
         Map<String, Map<String, Integer>> graph = cloneGraph(buildCapacityGraph(sessionId));
         long start = System.nanoTime();
 
@@ -123,6 +129,7 @@ public class TrafficService {
 
     @Transactional
     public AlgorithmRunResult calculateFordFulkersonMaxFlow(Integer sessionId) {
+        // Ford-Fulkerson also consumes residual capacity, so it needs its own graph copy.
         Map<String, Map<String, Integer>> graph = cloneGraph(buildCapacityGraph(sessionId));
         long start = System.nanoTime();
 
@@ -146,6 +153,7 @@ public class TrafficService {
                 .stream()
                 .anyMatch(r -> Boolean.TRUE.equals(r.getIsCorrect()));
 
+        // Only the first correct submission for a session is marked as correct.
         boolean isCorrect = !alreadyCorrect && correct.equals(answer);
 
         ResponseModel response = new ResponseModel();
@@ -197,6 +205,7 @@ public class TrafficService {
             graph.putIfAbsent(from, new HashMap<>());
             graph.putIfAbsent(to, new HashMap<>());
             graph.get(from).put(to, cap);
+            // Add reverse edges with zero capacity so residual updates are always valid.
             graph.get(to).putIfAbsent(from, 0);
         }
 
@@ -220,6 +229,7 @@ public class TrafficService {
         int maxFlow = 0;
 
         while (true) {
+            // Dinic repeatedly builds levels, then sends blocking flow through valid levels.
             Map<String, Integer> level = buildLevelGraph(graph, nodes);
             if (!level.containsKey(SINK)) {
                 return maxFlow;
@@ -270,6 +280,7 @@ public class TrafficService {
         int startIndex = nextEdge.getOrDefault(current, 0);
 
         for (int i = startIndex; i < neighbors.size(); i++) {
+            // Remember the next neighbor to try so dead edges are not rescanned in this phase.
             nextEdge.put(current, i + 1);
 
             String neighbor = neighbors.get(i);
@@ -290,6 +301,7 @@ public class TrafficService {
             );
 
             if (bottleneck > 0) {
+                // Update the residual network after pushing flow through this edge.
                 graph.get(current).put(neighbor, capacity - bottleneck);
                 graph.get(neighbor).put(current, graph.get(neighbor).getOrDefault(current, 0) + bottleneck);
                 return bottleneck;
@@ -303,6 +315,7 @@ public class TrafficService {
         int maxFlow = 0;
 
         while (true) {
+            // Each DFS finds one augmenting path in the current residual graph.
             Set<String> visited = new HashSet<>();
             int flow = dfs(graph, source, sink, Integer.MAX_VALUE, visited);
             if (flow == 0) {
@@ -345,6 +358,7 @@ public class TrafficService {
 
     private List<String> orderedNeighbors(Map<String, Map<String, Integer>> graph, String node, List<String> nodes) {
         List<String> neighbors = new ArrayList<>(graph.getOrDefault(node, Map.of()).keySet());
+        // Stable ordering makes both algorithms deterministic for the same network.
         neighbors.sort(Comparator.<String>comparingInt(nodes::indexOf).thenComparing(String::compareTo));
         return neighbors;
     }
@@ -361,6 +375,7 @@ public class TrafficService {
         AlgorithmExecuteId executionId = new AlgorithmExecuteId(sessionId, algorithmId);
         Optional<AlgorithmExecuteModel> existing = algorithmExecuteRepository.findById(executionId);
         if (existing.isPresent()) {
+            // Keep one execution row per session and algorithm.
             return;
         }
 
@@ -410,6 +425,7 @@ public class TrafficService {
     }
 
     public static class AlgorithmRunResult {
+        // Small response DTO returned by the algorithm endpoints.
         private final String algorithm;
         private final int maxFlow;
         private final double timeMs;
@@ -434,6 +450,7 @@ public class TrafficService {
     }
 
     public static class AnswerSubmissionResult {
+        // Small response DTO returned after a player submits an answer.
         private final boolean correct;
         private final Integer correctAnswer;
         private final String playerName;

@@ -6,10 +6,12 @@ import jakarta.persistence.*;
 @Table(name = "Traffic_Sim_Game")
 public class TrafficSimGame {
 
+    // Uses the common Game_Session id as the primary key for this traffic game row.
     @Id
     @Column(name = "Session_Id")
     private Integer sessionId;
 
+    // Correct maximum-flow answer calculated when the network is generated.
     @Column(name = "Max_Flow_Value", nullable = false)
     private Integer maxFlowValue;
 

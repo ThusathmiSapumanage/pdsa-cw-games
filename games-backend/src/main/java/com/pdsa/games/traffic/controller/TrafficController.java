@@ -23,22 +23,19 @@ public class TrafficController {
 
     private final TrafficService trafficService;
 
-    // Connects the controller to the traffic service so each endpoint can use 
-    //the game logic.
+    // Connects the controller to the traffic service so each endpoint can use the game logic.
     public TrafficController(TrafficService trafficService) {
         this.trafficService = trafficService;
     }
 
-    // Creates a new traffic network for the given session and sends the generated roads 
-    //back to the frontend.
+    // Creates a new traffic network for the given session and sends the roads to the frontend.
     @PostMapping("/generate/{sessionId}")
     public ResponseEntity<List<Road>> generateNetwork(@PathVariable Integer sessionId) {
         List<Road> generatedRoads = trafficService.generateTrafficNetwork(sessionId);
         return ResponseEntity.ok(generatedRoads);
     }
 
-    // Runs Dinic's algorithm for the selected session and returns both the max flow and the 
-    //time it took to calculate.
+    // Runs Dinic's algorithm and returns both the max flow and the execution time.
     @GetMapping("/dinic/{sessionId}")
     public ResponseEntity<Map<String, Object>> calculateDinic(@PathVariable Integer sessionId) {
         TrafficService.AlgorithmRunResult result = trafficService.calculateDinicMaxFlow(sessionId);
@@ -63,8 +60,7 @@ public class TrafficController {
         return ResponseEntity.ok(response);
     }
 
-    // Checks the player's submitted answer against the saved max flow and returns whether 
-    //it was correct.
+    // Checks the player's submitted answer against the saved max flow.
     @PostMapping("/submit/{sessionId}")
     public ResponseEntity<Map<String, Object>> submitAnswer(
             @PathVariable Integer sessionId,

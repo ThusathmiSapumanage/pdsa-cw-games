@@ -6,9 +6,11 @@ import jakarta.persistence.*;
 @Table(name = "Roads")
 public class Road {
 
+    // Composite key: one directed road belongs to one traffic game session.
     @EmbeddedId
     private RoadId id;
 
+    // Maximum number of cars/flow units that can pass through this road.
     @Column(name = "Capacity", nullable = false)
     private Integer capacity;
 

@@ -8,12 +8,15 @@ import java.util.Objects;
 @Embeddable
 public class RoadId implements Serializable {
 
+    // Session that owns this generated road.
     @Column(name = "Session_Id")
     private Integer sessionId;
 
+    // Start node of the directed road, such as A or B.
     @Column(name = "Start_Node", length = 1)
     private String startNode;
 
+    // End node of the directed road, such as G or T.
     @Column(name = "End_Node", length = 1)
     private String endNode;
 
@@ -51,6 +54,7 @@ public class RoadId implements Serializable {
 
     @Override
     public boolean equals(Object o) {
+        // JPA composite keys need value-based equality for reliable repository lookup.
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RoadId roadId = (RoadId) o;
